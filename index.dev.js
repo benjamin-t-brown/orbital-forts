@@ -8,10 +8,20 @@ const parser = require('body-parser');
 const app = express();
 const server = require('http').Server(app);
 const io = require('socket.io')(server);
-const code = fs.readFileSync('./public/server.js', 'utf8');
-const shared = fs.existsSync('./public/shared.js')
-  ? fs.readFileSync('./public/shared.js', 'utf8')
+const shared = fs.existsSync('./public-dev/shared.js')
+  ? fs.readFileSync('./public-dev/shared.js', 'utf8')
   : '';
+
+const serverFiles = fs
+  .readdirSync('./public-dev')
+  .filter(fileName => fileName.includes('server.'))
+  .sort((a, b) => (a.length < b.length ? -1 : 1));
+
+const serverFilesConcat = serverFiles.reduce((prev, curr) => {
+  return '\n' + prev + fs.readFileSync('./public-dev/' + curr).toString();
+}, '');
+console.log('Aux Server Files:', serverFiles);
+
 const storage = require('./lib/storage');
 
 let packageSize = 0;
@@ -46,7 +56,7 @@ function createZip() {
     packageSize = archive.pointer();
   });
   archive.pipe(output);
-  archive.directory('public/', '');
+  archive.directory('public-dev/', '');
   archive.finalize();
 }
 
@@ -71,7 +81,7 @@ app
         ].join('\n')
       );
   })
-  .use(express.static('public'))
+  .use(express.static('public-dev'))
   .use(
     session({ secret: 'js13kserver', saveUninitialized: false, resave: false })
   );
@@ -80,7 +90,7 @@ storage
   .init(app.get('storage'))
   .then(() => {
     const sandbox = createSandbox();
-    require('vm').runInNewContext(shared + '\n' + code, sandbox);
+    require('vm').runInNewContext(shared + '\n' + serverFilesConcat, sandbox);
     if (typeof sandbox.module.exports == 'function') {
       io.on('connection', sandbox.module.exports);
     } else if (typeof sandbox.module.exports == 'object') {

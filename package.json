@@ -6,15 +6,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "build": "node build.js",
+    "start:dev": "node index.dev.js",
     "test": "mocha test"
   },
   "keywords": [
     "js13kgames",
     "server"
   ],
-  "engines": {
-    "node": "8.*"
-  },
   "dependencies": {
     "archiver": "^3.0.0",
     "body-parser": "^1.19.0",
@@ -23,11 +22,18 @@
     "mysql2": "^1.6.5",
     "pg": "^7.11.0",
     "pg-hstore": "^2.3.3",
-    "sequelize": "^5.9.4",
+    "sequelize": "^5.21.5",
     "socket.io": "^2.2.0",
     "sqlite3": "^4.0.9"
   },
   "devDependencies": {
-    "mocha": "^6.1.4"
+    "babel-eslint": "^10.0.1",
+    "eslint": "^5.16.0",
+    "eslint-config-prettier": "^6.4.0",
+    "eslint-plugin-babel": "^5.3.0",
+    "eslint-plugin-prettier": "^3.1.0",
+    "mocha": "^6.1.4",
+    "prettier": "^1.18.2",
+    "uglifycss": "0.0.29"
   }
 }
