@@ -198,11 +198,10 @@ window.events = {
   async returnToMenu() {
     if (G_model_getGameId()) {
       await window.events.leave();
-    } else {
-      G_model_setGameData(null);
-      G_model_setGameData(null);
-      G_controller_showMenu('menu');
     }
+    G_model_setGameData(null);
+    G_model_setGameId(null);
+    G_controller_showMenu('menu');
   },
   hideDialog() {
     G_controller_showMenu(G_model_getPreviousMenu());
