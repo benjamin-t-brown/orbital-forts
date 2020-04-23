@@ -34,6 +34,7 @@
     "eslint-plugin-prettier": "^3.1.0",
     "mocha": "^6.1.4",
     "prettier": "^1.18.2",
+    "terser": "^4.6.11",
     "uglifycss": "0.0.29"
   }
 }

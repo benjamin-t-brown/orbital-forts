@@ -64,13 +64,13 @@ const build = async () => {
 
   console.log('\nMinify code...');
   await execAsync(
-    'terser --compress --toplevel --mangle -o public/client.js -- .build/client.tmp.js'
+    'node_modules/.bin/terser --compress --toplevel --mangle -o public/client.js -- .build/client.tmp.js'
   );
   await execAsync(
-    'terser --compress --toplevel --mangle -o public/server.js -- .build/server.tmp.js'
+    'node_modules/.bin/terser --compress --toplevel --mangle -o public/server.js -- .build/server.tmp.js'
   );
   await execAsync(
-    'terser --compress --mangle -o public/shared.js -- .build/shared.tmp.js'
+    'node_modules/.bin/terser --compress --mangle -o public/shared.js -- .build/shared.tmp.js'
   );
   await execAsync('uglifycss --output public/style.css public-dev/style.css');
 
