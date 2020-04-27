@@ -1,8 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
     <title>Orbital Forts</title>
-    <meta charset="UTF-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, minimal-ui"
@@ -14,8 +12,6 @@
       id="x"
       width="50"
       height="50"
-      version="1.1"
-      xmlns="http://www.w3.org/2000/svg"
       style="display:none"
     >
       <line
@@ -34,43 +30,33 @@
       />
     </svg>
     <div id="main" class="centered">
-      <div id="game">
+      <div id="game" class="hidden">
         <div id="cc" style="position:relative;">
           <canvas id="c"></canvas>
-          <div id="res"></div>
-          <div id="players"></div>
-          <div id="particles"></div>
+          <div class="game-elems" id="res"></div>
+          <div class="game-elems" id="players"></div>
+          <div class="game-elems" id="particles"></div>
           <div id="target" class="target"></div>
         </div>
-        <div id="banner">
+        <div id="banner" class="game-ui" style="top:0px">
           <div id="center-self" onclick="events.centerCam()">Center On Self</div>
           <div class="banner-message" id="banner-message"></div>
           <div class="banner-message" id="banner-message2"></div>
         </div>
         <button id="leave-game" onclick="events.returnToMenu()">Leave</button>
-        <div id="controls">
-          <div>
-            <button id="confirm" onclick="events.confirmAction()" style="width:140px">Confirm!</button>
-            <button id="set-target" onclick="events.setTarget()" style="width:140px">
-              Set Target
-            </button>
-          </div>
+        <div id="controls" class="game-ui" style="bottom:0px">
+          <div id="action-buttons"></div>
           <div id="target-buttons"></div>
           <div id="funds">Funds: 0</div>
-          <div id="cost">Cost: 0</div>
           <div id="control-panel">
-            <div style="border-right:1px solid #555">
-              <div class="a-label">Action</div>
-              <div class="horizontal-button-list" id="control-buttons"></div>
-            </div>
-            <div style="border-left:1px solid #555">
-              <div class="a-label">Missile Speed</div>
-              <div class="horizontal-button-list" id="speed-buttons"></div>
+            <div>
+              <div class="actions-label">Missile Speed</div>
+              <div class="h-button-list" id="speed-buttons"></div>
             </div>
           </div>
         </div>
       </div>
-      <div id="lobby" class="centered menu">
+      <div id="lobby" class="centered hidden menu">
         <button class="back" onclick="events.leave()">Back</button>
         <div id="lobby-title">Lobby</div>
         <select id="lobby-map-select" class="centered" onchange="events.setMapIndex()"></select>
@@ -84,7 +70,7 @@
         <button onclick="events.create(true)">Practice</button>
         <div id="games" class="centered"></div>
       </div>
-      <div id="dialog" class="centered menu">
+      <div id="dialog" class="centered hidden menu">
         <div id="dialog-text"></div>
         <button onclick="events.hideDialog()">OK</button>
       </div>

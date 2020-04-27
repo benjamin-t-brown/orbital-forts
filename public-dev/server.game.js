@@ -10,16 +10,16 @@ G_actions
 G_getActionCost
 G_getSpeedCost
 G_getRandomLocInCircle
-G_socket_sendUpdateGameList
-G_socket_createMessageSocket
-G_socket_randomId
-G_SOCKET_START_GAME
-G_SOCKET_STOP_GAME
-G_SOCKET_BROADCAST_GAME
-G_SOCKET_LOBBY_LIST_UPDATED
-G_SOCKET_START_SIMULATION
-G_SOCKET_STOP_SIMULATION
-G_SOCKET_GAME_FINISHED
+G_S_sendUpdateGameList
+G_S_createMessageSocket
+G_S_randomId
+G_S_START
+G_S_STOP
+G_S_BROADCAST
+G_S_LOBBY_LIST_UPDATED
+G_S_START_SIMULATION
+G_S_STOP_SIMULATION
+G_S_FINISHED
 G_user_unsetGame
 G_user_getId
 G_user_getName
@@ -40,7 +40,7 @@ const G_Game = (owner, name) => {
   let broadcastEvery = 10; // broadcast every this number of frames
   let frame = 0;
   let FORT_SIZE = 25 / G_SCALE;
-  let initialFunds = 100;
+  let initialFunds = 10000;
   let baseFundsPerRound = 25;
   let mapIndex = 0;
   const colors = [
@@ -104,7 +104,7 @@ const G_Game = (owner, name) => {
       const { x, y, posR } = r;
       gameObj.resources.push({
         ...r,
-        id: G_socket_randomId(),
+        id: G_S_randomId(),
         ...G_getRandomLocInCircle(x, y, posR),
       });
     }
@@ -114,8 +114,8 @@ const G_Game = (owner, name) => {
 
   const broadcast = (i, timestamp, gameData) => {
     game.emitAll(
-      G_SOCKET_BROADCAST_GAME,
-      G_socket_createMessageSocket({
+      G_S_BROADCAST,
+      G_S_createMessageSocket({
         i,
         timestamp,
         gameData,
@@ -139,50 +139,8 @@ const G_Game = (owner, name) => {
       gameData.collisions = collisions;
       let len = collisions.length;
       if (len) {
-        console.log('GOT A COLL', JSON.stringify(collisions));
         for (let i = 0; i < len; i++) {
-          const [projectile, other] = collisions[i];
-          let remove = true;
-          if (other) {
-            if (other.type === 'coin') {
-              const player = getPlayer(projectile.meta.player, gameData);
-              player.funds += other.value;
-              removeResource(other.id, gameData);
-              remove = false;
-            } else if (other.meta) {
-              // is projectile
-              if (projectile.meta.speed > other.meta.speed) {
-                removeProjectile(other.meta.id, gameData);
-              } else if (projectile.meta.speed < other.meta.speed) {
-                removeProjectile(projectile.meta.id, gameData);
-              } else {
-                removeProjectile(other.meta.id, gameData);
-                removeProjectile(projectile.meta.id, gameData);
-              }
-              const ind = collisions.reduce(
-                (prev, curr, i) =>
-                  curr.meta && curr.meta.id === other.id ? i : prev,
-                -1
-              );
-              if (ind > -1) {
-                collisions.splice(i, 1);
-                len--;
-              }
-              continue;
-            } else if (other.color) {
-              // is player
-              removeProjectile(other.color, gameData, true);
-              const player = getPlayer(other.id, gameData);
-              player.hp--;
-              if (player.hp <= 0) {
-                player.dead = true;
-              }
-            }
-          }
-          let ind = currentGameData.projectiles.indexOf(projectile);
-          if (ind > -1 && remove) {
-            currentGameData.projectiles.splice(ind, 1);
-          }
+          handleCollision(collisions[i]);
         }
       }
 
@@ -191,13 +149,15 @@ const G_Game = (owner, name) => {
         if (p.meta.type === 'Move') {
           movePlayer(p.meta.player, p.px, p.py);
         }
-        if (now - startTime >= p.t) {
+        if (p.meta.remove) {
+          gameData.projectiles.splice(i, 1);
+          i--;
+          continue;
+        }
+        if (now - startTime >= p.t || isOutOfBounds(p.px, p.py)) {
           collisions.push([p, null]);
           gameData.projectiles.splice(i, 1);
           i--;
-          if (p.meta.type === 'Move') {
-            movePlayer(p.meta.player, p.px, p.py);
-          }
         }
       }
 
@@ -216,24 +176,81 @@ const G_Game = (owner, name) => {
       stopSimulation();
     }
   };
+  const handleCollision = c => {
+    const [projectile, other] = c;
+    let player = getPlayer(projectile.meta.player, gameData);
+    const isPlayer = o => {
+      return !!(o.color && other.name);
+    };
+    const isPlanet = o => {
+      return !!o.color;
+    };
+    const isProjectile = o => {
+      return o.meta && o.meta.proj;
+    };
+    const isCoin = o => {
+      return o.type === 'coin';
+    };
+
+    switch (true) {
+      // if a projectile hits a player, that player is dead
+      case isPlayer(other):
+        console.log('COL with player', projectile, other);
+        player = getPlayer(other.id, gameData);
+        player.dead = true;
+        projectile.meta.remove = true;
+        break;
+      // if a projectile hits another projectile, check speed.  If other's speed is same or less, remove other.
+      case isProjectile(other):
+        console.log('COL with other projectile', projectile, other);
+        const s1 = projectile.meta.speed;
+        const s2 = other.meta.speed;
+        if (s1 >= s2) {
+          console.log('This proj is faster or same as other, remove other');
+          other.meta.remove = true;
+        }
+        if (s2 >= s1) {
+          console.log('This proj is slower or same as other, remove this');
+          projectile.meta.remove = true;
+        }
+        break;
+      // if a projectile hits a coin, add that coin's funds the firing player and remove the coin
+      case isCoin(other):
+        console.log('COL with coin', projectile, other);
+        player.funds += other.value;
+        removeResource(other.id, gameData);
+        break;
+      // if a projectile hits a planet, it explodes.  If that projectile was a "Move", then the player is dead
+      case isPlanet(other):
+        console.log('COL with planet', projectile, other);
+        projectile.meta.remove = true;
+        if (projectile.meta.type === 'Move') {
+          console.log('Player died by running into planet');
+          player.dead = true;
+        }
+        break;
+      default:
+        console.log('No collision?', c, other);
+    }
+  };
+  const isOutOfBounds = (x, y) => {
+    const width = gameData.width + G_AU / 2;
+    const height = gameData.height + G_AU / 2;
+    return x < -width || x > width || y > height || y < -height;
+  };
+
   const startSimulation = () => {
     console.log('START SIMULATION');
     startTime = now = +new Date();
     nowDt = 0;
-    game.emitAll(
-      G_SOCKET_START_SIMULATION,
-      G_socket_createMessageSocket(gameData)
-    );
+    game.emitAll(G_S_START_SIMULATION, G_S_createMessageSocket(gameData));
     timeoutId = setTimeout(stopSimulation, gameData.maxRoundLength);
     intervalId = setInterval(simulate, G_FRAME_MS);
   };
   const stopSimulation = () => {
     console.log('STOP SIMULATION');
     if (started) {
-      game.emitAll(
-        G_SOCKET_STOP_SIMULATION,
-        G_socket_createMessageSocket(gameData)
-      );
+      game.emitAll(G_S_STOP_SIMULATION, G_S_createMessageSocket(gameData));
       clearInterval(intervalId);
       intervalId = -1;
       clearTimeout(timeoutId);
@@ -270,30 +287,10 @@ const G_Game = (owner, name) => {
       return pl.id === id ? pl : ret;
     }, null);
   };
-  const getProjectileIndex = (id, gameData) => {
-    return gameData.projectiles.reduce((ret, pl, i) => {
-      return pl.meta.id === id ? i : ret;
-    }, -1);
-  };
-  const getProjectileIndexWithColor = (color, gameData) => {
-    return gameData.projectiles.reduce((ret, pl, i) => {
-      return pl.color === color ? i : ret;
-    }, -1);
-  };
   const getResourceIndex = (id, gameData) => {
     return gameData.resources.reduce((ret, pl, i) => {
       return pl.id === id ? i : ret;
     }, -1);
-  };
-  const removeProjectile = (id, gameData, isColor) => {
-    const ind = isColor
-      ? getProjectileIndexWithColor(id, gameData)
-      : getProjectileIndex(id, gameData);
-    if (ind > -1) {
-      gameData.projectiles.splice(ind, 1);
-    } else {
-      console.log('NO PROJ FOUND?', id, isColor);
-    }
   };
   const removeResource = (id, gameData) => {
     const ind = getResourceIndex(id, gameData);
@@ -325,8 +322,9 @@ const G_Game = (owner, name) => {
     const ret = [
       G_Body(
         {
+          proj: true,
           type,
-          id: G_socket_randomId(),
+          id: G_S_randomId(),
           player: player.id,
           speed,
           color: player.color,
@@ -384,10 +382,7 @@ const G_Game = (owner, name) => {
 
   const updateUsers = () => {
     const playersList = game.getPlayers();
-    game.emitAll(
-      G_SOCKET_LOBBY_LIST_UPDATED,
-      G_socket_createMessageSocket(playersList)
-    );
+    game.emitAll(G_S_LOBBY_LIST_UPDATED, G_S_createMessageSocket(playersList));
   };
 
   const game = {
@@ -459,8 +454,8 @@ const G_Game = (owner, name) => {
       gameData = createGameData(users);
 
       game.emitAll(
-        G_SOCKET_START_GAME,
-        G_socket_createMessageSocket({
+        G_S_START,
+        G_S_createMessageSocket({
           startTime,
           gameData,
         })
@@ -468,26 +463,20 @@ const G_Game = (owner, name) => {
     },
     stop() {
       stopSimulation();
-      game.emitAll(
-        G_SOCKET_STOP_GAME,
-        G_socket_createMessageSocket('The game was stopped.')
-      );
+      game.emitAll(G_S_STOP, G_S_createMessageSocket('The game was stopped.'));
       users.forEach(user => {
         G_user_unsetGame(user);
       });
-      G_socket_sendUpdateGameList();
+      G_S_sendUpdateGameList();
     },
     finish(result) {
       console.log('Finish game.');
       gameData.result = result;
-      game.emitAll(
-        G_SOCKET_GAME_FINISHED,
-        G_socket_createMessageSocket(gameData)
-      );
+      game.emitAll(G_S_FINISHED, G_S_createMessageSocket(gameData));
       users.forEach(user => {
         G_user_unsetGame(user);
       });
-      G_socket_sendUpdateGameList();
+      G_S_sendUpdateGameList();
     },
     setMapIndex(i) {
       if (i >= 0 && i < G_maps.length) {
@@ -496,7 +485,7 @@ const G_Game = (owner, name) => {
       if (i === -1) {
         mapIndex = 0;
         isPractice = true;
-        initialFunds = 10000;
+        initialFunds = 100000;
       }
     },
     confirmAction(action, args, user) {

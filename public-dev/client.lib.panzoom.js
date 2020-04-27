@@ -1,5 +1,7 @@
 // original src https://github.com/SpencerWie/Panzoom/blob/master/dist/panzoom.js
 
+let G_isPanning = false;
+
 function G_PanZoom(selector, opts) {
   function AttachPanZoom(ele, minScaleA, maxScaleA, incrementA, linerA) {
     const increment = incrementA;
@@ -76,12 +78,13 @@ function G_PanZoom(selector, opts) {
       };
     };
 
-    // Capture when the mouse is down on the element or not
     ele.addEventListener('mousedown', e => {
-      e.preventDefault();
-      panning = true;
-      oldX = e.clientX;
-      oldY = e.clientY;
+      if (e.button === 0) {
+        e.preventDefault();
+        panning = true;
+        oldX = e.clientX;
+        oldY = e.clientY;
+      }
     });
 
     ele.addEventListener('touchstart', e => {
@@ -95,6 +98,7 @@ function G_PanZoom(selector, opts) {
           const { clientX: x2, clientY: y2 } = touches[0];
           touchDist = getDistance(x1, y1, x2, y2);
           zooming = true;
+          G_isPanning = true;
           const { x, y } = getCenter(x1, y1, x2, y2);
           oldX = x;
           oldY = y;
@@ -105,16 +109,23 @@ function G_PanZoom(selector, opts) {
       }
     });
 
-    ele.addEventListener('mouseup', () => {
-      panning = false;
+    ele.addEventListener('mouseup', e => {
+      if (e.button === 0) {
+        panning = false;
+        G_isPanning = false;
+      }
     });
     ele.addEventListener('mouseleave', () => {
       panning = false;
+      G_isPanning = false;
     });
 
-    ele.addEventListener('touchend', () => {
-      panning = false;
-      zooming = false;
+    ele.addEventListener('touchend', ev => {
+      if (ev.touches.length === 0) {
+        panning = false;
+        zooming = false;
+        G_isPanning = false;
+      }
     });
 
     ele.addEventListener('mousemove', e => {

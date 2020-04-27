@@ -1,6 +1,7 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const archiver = require('archiver');
+const minifyHtml = require('html-minifier').minify;
 
 // pulled this from index.js in the template
 async function createZip() {
@@ -51,6 +52,17 @@ const build = async () => {
       return prev + '\n' + fs.readFileSync('public-dev/' + curr).toString();
     }, '(() => {\n') + '\n})()';
   const sharedFile = fs.readFileSync('public-dev/shared.js').toString();
+  const htmlFile = fs
+    .readFileSync('public-dev/index.html')
+    .toString()
+    .replace(/\n/g, '')
+    .replace(
+      /<footer>(.*)/,
+      `<footer><script src="/socket.io/socket.io.js"></script>
+    <script src="/shared.js"></script>
+    <script src="/client.js"></script>`
+    );
+
   await execAsync(
     'rm -rf .build public.zip public/*.js public/*.css public/*.wav'
   );
@@ -70,9 +82,25 @@ const build = async () => {
     'node_modules/.bin/terser --compress toplevel,drop_console --mangle -o public/server.js -- .build/server.tmp.js'
   );
   await execAsync(
-    'node_modules/.bin/terser --compress drop_console,unsafe_comps --mangle -o public/shared.js -- .build/shared.tmp.js'
+    'node_modules/.bin/terser --compress drop_console --mangle -o public/shared.js -- .build/shared.tmp.js'
   );
   await execAsync('uglifycss --output public/style.css public-dev/style.css');
+  console.log('minify html: public/index.html');
+  fs.writeFileSync(
+    'public/index.html',
+    minifyHtml(htmlFile, {
+      removeAttributeQuotes: true,
+      collapseWhitespace: true,
+      html5: true,
+      minifyCSS: true,
+      minifyJS: true,
+      removeRedundantAttributes: true,
+      removeScriptTypeAttributes: true,
+      removeTagWhitespace: true,
+      removeComments: true,
+      useShortDoctype: true,
+    })
+  );
 
   console.log('\nZip (command line)...');
   await execAsync('cd public && zip -9 ../public.zip *');

@@ -1,18 +1,18 @@
 /*
 global
-G_REST_CREATE_GAME
-G_REST_JOIN_GAME
-G_REST_LEAVE_GAME
-G_REST_START_GAME
-G_SOCKET_CONNECTED
-G_SOCKET_GAME_LIST_UPDATED
-G_SOCKET_LOBBY_LIST_UPDATED
-G_SOCKET_START_GAME
-G_SOCKET_STOP_GAME
-G_SOCKET_START_SIMULATION
-G_SOCKET_STOP_SIMULATION
-G_SOCKET_GAME_FINISHED
-G_SOCKET_BROADCAST_GAME
+G_R_CREATE
+G_R_JOIN
+G_R_LEAVE
+G_R_START
+G_S_CONNECTED
+G_S_LIST_UPDATED
+G_S_LOBBY_LIST_UPDATED
+G_S_START
+G_S_STOP
+G_S_START_SIMULATION
+G_S_STOP_SIMULATION
+G_S_FINISHED
+G_S_BROADCAST
 G_Body
 G_SCALE
 G_AU
@@ -34,11 +34,13 @@ G_model_setUserId
 G_model_setGameData
 G_model_setBroadcastHistory
 G_model_setMaps
+G_model_setLoading
 G_view_renderGameList
 G_view_renderLobby
 */
 
 const G_client_sendRequest = async (type, arg, arg2) => {
+  G_model_setLoading(true);
   const headers = new Headers();
   headers.key = G_model_getKey();
   const result = await fetch(`/${type}/${arg}${arg2 ? '/' + arg2 : ''}`, {
@@ -48,6 +50,7 @@ const G_client_sendRequest = async (type, arg, arg2) => {
   if (json[1]) {
     console.error('[FETCH-ERROR]', json[1]);
   }
+  G_model_setLoading(false);
   console.log('fetch', type, arg, json);
   return { result: json[0], err: json[1] };
 };
@@ -57,41 +60,41 @@ const G_client_sendRequest = async (type, arg, arg2) => {
 
   const bind = () => {
     // emitted by server on page load
-    socket.on(G_SOCKET_CONNECTED, ([{ games, maps, id }]) => {
+    socket.on(G_S_CONNECTED, ([{ games, maps, id }]) => {
       console.log('connected load', games, id);
       G_model_setUserId(id);
       G_model_setMaps(maps);
       G_view_renderGameList(games);
     });
-    socket.on(G_SOCKET_GAME_LIST_UPDATED, ([games]) => {
+    socket.on(G_S_LIST_UPDATED, ([games]) => {
       console.log('game list updated', games);
       G_view_renderGameList(games);
     });
-    socket.on(G_SOCKET_LOBBY_LIST_UPDATED, ([games]) => {
+    socket.on(G_S_LOBBY_LIST_UPDATED, ([games]) => {
       console.log('lobby list updated', games);
       G_view_renderLobby(games);
     });
-    socket.on(G_SOCKET_START_GAME, ([{ startTime, gameData }]) => {
+    socket.on(G_S_START, ([{ startTime, gameData }]) => {
       console.log('start', startTime, gameData);
       G_controller_startGame(gameData);
     });
-    socket.on(G_SOCKET_STOP_GAME, ([message]) => {
+    socket.on(G_S_STOP, ([message]) => {
       console.log('stop', message);
       G_controller_showMenu('menu');
       G_controller_showDialog(message);
       G_model_setGameData(null);
     });
-    socket.on(G_SOCKET_START_SIMULATION, ([gameData]) => {
+    socket.on(G_S_START_SIMULATION, ([gameData]) => {
       console.log('begin simulation', gameData);
       G_model_setBroadcastHistory([gameData]);
       G_controller_beginSimulation(gameData);
     });
-    socket.on(G_SOCKET_STOP_SIMULATION, ([gameData]) => {
+    socket.on(G_S_STOP_SIMULATION, ([gameData]) => {
       console.log('stop simulation');
       G_model_setBroadcastHistory([]);
       G_controller_endSimulation(gameData);
     });
-    socket.on(G_SOCKET_BROADCAST_GAME, ([{ gameData }]) => {
+    socket.on(G_S_BROADCAST, ([{ gameData }]) => {
       G_model_setGameData(gameData);
       const history = G_model_getBroadcastHistory();
       history.push(gameData);
@@ -99,7 +102,7 @@ const G_client_sendRequest = async (type, arg, arg2) => {
         history.shift();
       }
     });
-    socket.on(G_SOCKET_GAME_FINISHED, ([gameData]) => {
+    socket.on(G_S_FINISHED, ([gameData]) => {
       console.log('GAME OVER', gameData);
       G_controller_finishGame(gameData);
     });

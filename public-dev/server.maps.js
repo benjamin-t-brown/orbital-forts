@@ -37,7 +37,7 @@ const createCoin = (x, y, posR) => {
 const G_maps = [
   {
     name: 'Small Map',
-    maxRoundLength: 5000,
+    maxRoundLength: 8000,
     maxPlayers: 4,
     width: MAP_SIZE_SMALL,
     height: MAP_SIZE_SMALL,

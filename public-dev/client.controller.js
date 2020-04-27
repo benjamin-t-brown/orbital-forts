@@ -19,6 +19,7 @@ G_view_createResources
 G_view_createExplosion
 G_view_loop
 G_view_createTextParticle
+G_model_isGamePlaying
 G_model_getGameData
 G_model_getMe
 G_model_getUserId
@@ -34,9 +35,8 @@ G_model_setGameData
 G_model_setGameId
 G_model_setGameName
 G_model_setUserName
-G_model_setSelectedAction
+G_model_setGamePlaying
 G_model_setSelectedSpeed
-G_model_setSelectingTarget
 G_model_setColor
 G_model_setTargetLocation
 G_model_setWaitingForSimToStart
@@ -62,12 +62,12 @@ const G_controller_init = () => {
 };
 
 const G_controller_startGame = gameData => {
+  G_model_setGamePlaying(true);
   G_model_setGameData(gameData);
   G_controller_showMenu('game');
   const { players, width, height } = gameData;
   G_view_setScreenDimensions(width * 2 * G_SCALE, height * 2 * G_SCALE);
   const p = G_model_getMe(gameData);
-  G_model_setSelectedAction('Shoot');
   G_model_setSelectedSpeed('Normal');
   G_model_setColor(p.color);
 
@@ -86,7 +86,7 @@ const G_controller_startGame = gameData => {
     playersDiv.appendChild(div);
   }
 
-  G_model_setTargetLocation([p.x, p.y]);
+  G_model_setTargetLocation([p.x, p.y + 100]);
   G_controller_centerOnPlayer();
 
   G_model_setWaitingForSimToStart(false);
@@ -105,6 +105,7 @@ const G_controller_stopGame = () => {
   G_controller_showMenu('menu');
   G_model_setGameId(null);
   G_model_setGameData(null);
+  G_model_setGamePlaying(false);
 };
 
 const G_controller_beginSimulation = gameData => {
@@ -112,7 +113,7 @@ const G_controller_beginSimulation = gameData => {
   G_model_setWaitingForSimToStart(false);
   G_model_setSimulating(true);
   G_view_getElementById('particles').innerHTML = '';
-  G_view_renderGameUI();
+  G_view_renderGameUI(gameData);
   G_view_renderSimulation(gameData);
 
   console.log('BEGIN SIMULATION');
@@ -208,6 +209,7 @@ const G_controller_showDialog = text => {
 
 const G_controller_finishGame = gameData => {
   if (G_model_getGameData() && gameData.result) {
+    G_model_setGamePlaying(false);
     G_model_setGameOver(true);
     G_model_setGameData(gameData);
     G_view_renderGameUI(gameData);
@@ -215,14 +217,16 @@ const G_controller_finishGame = gameData => {
   }
 };
 
+const LOCAL_STORAGE_KEY = 'js13k2020_orbital_forts_u';
 const G_controller_setUserName = userName => {
   G_view_getElementById('player-name-input').value = userName;
   G_model_setUserName(userName);
-  localStorage.setItem('js13k2020_orbital_forts_u', userName);
+  localStorage.setItem(LOCAL_STORAGE_KEY, userName);
 };
-
 const G_controller_getUserName = () => {
-  return G_model_getUserName() || localStorage.getItem('u') || 'Player';
+  return (
+    G_model_getUserName() || localStorage.getItem(LOCAL_STORAGE_KEY) || 'Player'
+  );
 };
 
 const G_controller_showErrorMessage = msg => {
@@ -230,4 +234,25 @@ const G_controller_showErrorMessage = msg => {
   G_view_renderGameList([]);
   G_controller_showMenu('menu');
   G_controller_showDialog(msg);
+};
+
+const G_controller_setTarget = ev => {
+  let canvas = G_view_getElementById('c');
+  if (ev.changedTouches) {
+    const touch = ev.changedTouches[0];
+    const transform = canvas.parentElement.style.transform;
+    const { left, top } = canvas.getBoundingClientRect();
+    const scale = parseFloat(transform.slice(7, transform.indexOf(',')));
+    let { x, y } = G_view_pxToWorld(
+      (touch.clientX - left) / scale,
+      (touch.clientY - top) / scale
+    );
+    G_model_setTargetLocation([x, y]);
+  } else {
+    const { offsetX, offsetY } = ev;
+    let { x, y } = G_view_pxToWorld(offsetX, offsetY);
+    G_model_setTargetLocation([x, y]);
+  }
+  G_view_renderGameUI(G_model_getGameData());
+  G_view_renderSimulation(G_model_getGameData());
 };
