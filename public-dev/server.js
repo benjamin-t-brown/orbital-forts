@@ -37,6 +37,8 @@ const G_user_setName = (user, name) => (user[2] = name);
 const G_user_getGame = user => user[1];
 const G_user_setGame = (user, game) => (user[1] = game);
 const G_user_unsetGame = user => (user[1] = null);
+const G_user_errorGameExists = user => `Game exists: ${G_user_getName(user)}`;
+const G_user_errorGameDoesNotExist = user => `No game: ${G_user_getName(user)}`;
 
 const G_S_createMessageSocket = (payload, err) => {
   return [payload, err];
@@ -54,7 +56,7 @@ const G_S_wrapTryCatch = cb => {
       cb(req, res);
     } catch (e) {
       console.error('ERROR', e.stack);
-      res.send(G_S_createMessageRest(null, 'Internal server error.'));
+      res.send(G_S_createMessageRest(null, 'Error.'));
     }
   };
 };
@@ -116,7 +118,7 @@ const G_S_sendUpdateGameList = () => {
 const G_S_assertUser = (id, res) => {
   const user = G_S_getUserById(id);
   if (!user) {
-    res.send(G_S_createMessageRest(null, `No user exists: ${id}`));
+    res.send(G_S_createMessageRest(null, `No user: ${id}`));
     return false;
   }
   return user;
@@ -138,7 +140,7 @@ const server = {
       return;
     }
     if (!userName) {
-      res.send(G_S_createMessageRest(null, 'No user name specified'));
+      res.send(G_S_createMessageRest(null, 'No given userName.'));
       return;
     }
     const game = G_user_getGame(user);
@@ -154,12 +156,7 @@ const server = {
       res.send(G_S_createMessageRest({ id: g.id, name: gameName }));
       G_S_sendUpdateGameList();
     } else {
-      res.send(
-        G_S_createMessageRest(
-          null,
-          `A game already exists for that user: ${G_user_getName(user)}`
-        )
-      );
+      res.send(G_S_createMessageRest(null, G_user_errorGameExists(user)));
     }
   }),
   [G_R_JOIN + '/:id/:args']: G_S_wrapTryCatch((req, res) => {
@@ -186,12 +183,10 @@ const server = {
         );
         G_S_sendUpdateGameList();
       } else {
-        res.send(G_S_createMessageRest(null, `Could not join game.`));
+        res.send(G_S_createMessageRest(null, `Cannot join.`));
       }
     } else {
-      res.send(
-        G_S_createMessageRest(null, `A game exists for that user: ${id}`)
-      );
+      res.send(G_S_createMessageRest(null, G_user_errorGameExists(user)));
     }
   }),
   [G_R_LEAVE + '/:id']: G_S_wrapTryCatch((req, res) => {
@@ -208,9 +203,7 @@ const server = {
       res.send(G_S_createMessageRest(game.id));
       G_S_sendUpdateGameList();
     } else {
-      res.send(
-        G_S_createMessageRest(null, `A game exists for that user: ${id}`)
-      );
+      res.send(G_S_createMessageRest(null, G_user_errorGameExists(user)));
     }
   }),
   [G_R_START + '/:id/:mapIndex']: G_S_wrapTryCatch((req, res) => {
@@ -228,13 +221,11 @@ const server = {
         game.start();
         G_S_sendUpdateGameList();
       } else {
-        res.send(G_S_createMessageRest(null, 'Cannot start game.'));
+        res.send(G_S_createMessageRest(null, 'Cannot start yet.'));
       }
     } else {
       console.log('error', G_S_getAllLobbies());
-      res.send(
-        G_S_createMessageRest(null, `No game exists for that user: ${id}`)
-      );
+      res.send(G_S_createMessageRest(null, G_user_errorGameDoesNotExist(user)));
     }
   }),
   [G_R_CONFIRM_ACTION + '/:id/:action/:args']: G_S_wrapTryCatch((req, res) => {
@@ -257,20 +248,13 @@ const server = {
         if (game.confirmAction(action, args, user)) {
           res.send(G_S_createMessageRest(true));
         } else {
-          res.send(G_S_createMessageRest(null, 'Cannot confirm action.'));
+          res.send(G_S_createMessageRest(null, 'Cannot confirm.'));
         }
       } else {
-        res.send(
-          G_S_createMessageRest(
-            null,
-            'Cannot send actions to a game that has not been started!'
-          )
-        );
+        res.send(G_S_createMessageRest(null, 'Game not started.'));
       }
     } else {
-      res.send(
-        G_S_createMessageRest(null, `No game exists for that user: ${id}`)
-      );
+      res.send(G_S_createMessageRest(null, G_user_errorGameDoesNotExist(user)));
     }
   }),
   io: socket => {

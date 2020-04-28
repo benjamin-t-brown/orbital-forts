@@ -3,6 +3,8 @@ const fs = require('fs');
 const archiver = require('archiver');
 const minifyHtml = require('html-minifier').minify;
 
+const useZip = process.argv[2] === 'zip';
+
 // pulled this from index.js in the template
 async function createZip() {
   return new Promise(resolve => {
@@ -102,13 +104,14 @@ const build = async () => {
     })
   );
 
-  console.log('\nZip (command line)...');
-  await execAsync('cd public && zip -9 ../public.zip *');
-  console.log(await execAsync(`stat -c '%n %s' public.zip`));
-  await execAsync('advzip -z -4 public.zip');
-  console.log(await execAsync(`stat -c '%n %s' public.zip`));
-
-  console.log('done (advzip = public.zip)');
+  if (useZip) {
+    console.log('\nZip (command line)...');
+    await execAsync('cd public && zip -9 ../public.zip *');
+    console.log(await execAsync(`stat -c '%n %s' public.zip`));
+    await execAsync('advzip -z -4 public.zip');
+    console.log(await execAsync(`stat -c '%n %s' public.zip`));
+    console.log('done (advzip = public.zip)');
+  }
 
   console.log('\nZip (js archiver)...');
   const size = await createZip();

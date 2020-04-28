@@ -98,7 +98,7 @@ const G_client_sendRequest = async (type, arg, arg2) => {
       G_model_setGameData(gameData);
       const history = G_model_getBroadcastHistory();
       history.push(gameData);
-      if (history.length > 200) {
+      if (history.length > 500) {
         history.shift();
       }
     });

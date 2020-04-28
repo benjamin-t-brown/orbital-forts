@@ -31,9 +31,16 @@ let G_SPEEDS = {
   Super: [125000, 100],
 };
 
+const G_action_move = 'Move';
+const G_action_shoot = 'Shoot';
+const G_action_spread = 'Spreadfire';
+const G_res_coin = 'coin';
+const G_res_spray = 'spray';
+
 let G_actions = [
-  ['Shoot', 0],
-  ['Move', 50],
+  [G_action_move, 75],
+  [G_action_shoot, 0],
+  [G_action_spread, 50],
 ];
 
 let G_getActionCost = actionName =>

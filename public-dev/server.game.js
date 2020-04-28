@@ -10,6 +10,8 @@ G_actions
 G_getActionCost
 G_getSpeedCost
 G_getRandomLocInCircle
+G_res_coin
+G_res_spray
 G_S_sendUpdateGameList
 G_S_createMessageSocket
 G_S_randomId
@@ -24,6 +26,9 @@ G_user_unsetGame
 G_user_getId
 G_user_getName
 G_maps
+G_action_move
+G_action_shoot
+G_action_spread
 */
 
 const G_Game = (owner, name) => {
@@ -40,7 +45,7 @@ const G_Game = (owner, name) => {
   let broadcastEvery = 10; // broadcast every this number of frames
   let frame = 0;
   let FORT_SIZE = 25 / G_SCALE;
-  let initialFunds = 10000;
+  let initialFunds = 100;
   let baseFundsPerRound = 25;
   let mapIndex = 0;
   const colors = [
@@ -84,6 +89,7 @@ const G_Game = (owner, name) => {
         id: G_user_getId(user),
         name: G_user_getName(user),
         funds: initialFunds,
+        actions: { [G_action_shoot]: true, [G_action_move]: true },
         ready: false,
         dead: false,
         hp: 1,
@@ -128,25 +134,29 @@ const G_Game = (owner, name) => {
       nowDt = n - now;
       now = n;
       let currentGameData = gameData;
+      let { projectiles, planets, players, resources } = currentGameData;
       let collisions = G_applyGravity(
-        currentGameData.projectiles,
-        currentGameData.projectiles.concat(currentGameData.planets),
-        currentGameData.players
-          .filter(p => !p.dead)
-          .concat(currentGameData.resources),
+        projectiles,
+        projectiles.concat(planets),
+        players.filter(p => !p.dead).concat(resources),
         nowDt
       );
       gameData.collisions = collisions;
       let len = collisions.length;
       if (len) {
         for (let i = 0; i < len; i++) {
-          handleCollision(collisions[i]);
+          // handleCollision returns {true} when the collision should be removed
+          if (handleCollision(collisions[i])) {
+            collisions.splice(i, 1);
+            i--;
+            len--;
+          }
         }
       }
 
       for (let i = 0; i < gameData.projectiles.length; i++) {
         const p = gameData.projectiles[i];
-        if (p.meta.type === 'Move') {
+        if (p.meta.type === G_action_move) {
           movePlayer(p.meta.player, p.px, p.py);
         }
         if (p.meta.remove) {
@@ -167,7 +177,7 @@ const G_Game = (owner, name) => {
       }
 
       frame++;
-      if (frame >= broadcastEvery || len) {
+      if (frame >= broadcastEvery || collisions.length) {
         frame = 0;
         broadcast(broadcastCtr++, now, gameData);
       }
@@ -189,7 +199,10 @@ const G_Game = (owner, name) => {
       return o.meta && o.meta.proj;
     };
     const isCoin = o => {
-      return o.type === 'coin';
+      return o.type === G_res_coin;
+    };
+    const isSpray = o => {
+      return o.type === G_res_spray;
     };
 
     switch (true) {
@@ -202,6 +215,9 @@ const G_Game = (owner, name) => {
         break;
       // if a projectile hits another projectile, check speed.  If other's speed is same or less, remove other.
       case isProjectile(other):
+        if (other.meta.player === projectile.meta.player) {
+          return true;
+        }
         console.log('COL with other projectile', projectile, other);
         const s1 = projectile.meta.speed;
         const s2 = other.meta.speed;
@@ -220,17 +236,21 @@ const G_Game = (owner, name) => {
         player.funds += other.value;
         removeResource(other.id, gameData);
         break;
+      // if a projectile hits a 'spray' power-up, add that to the players list of available actions and remove the power-up
+      case isSpray(other):
+        console.log('COL with spray', projectile, other);
+        player.actions[G_action_spread] = true;
+        removeResource(other.id, gameData);
+        break;
       // if a projectile hits a planet, it explodes.  If that projectile was a "Move", then the player is dead
       case isPlanet(other):
         console.log('COL with planet', projectile, other);
         projectile.meta.remove = true;
-        if (projectile.meta.type === 'Move') {
+        if (projectile.meta.type === G_action_move) {
           console.log('Player died by running into planet');
           player.dead = true;
         }
         break;
-      default:
-        console.log('No collision?', c, other);
     }
   };
   const isOutOfBounds = (x, y) => {
@@ -311,16 +331,19 @@ const G_Game = (owner, name) => {
   };
 
   const createProjectiles = (type, speed, normalizedVec, player) => {
-    let mass = 1;
-    let r = 5 / G_SCALE;
-    let len = gameData.maxRoundLength;
-    if (type === 'Move') {
-      r = 15 / G_SCALE;
-      len = 1000;
-    }
-    const { color, x, y } = player;
-    const ret = [
-      G_Body(
+    const rotateVectorDeg = (vec, ang) => {
+      const { round, cos, sin, PI } = Math;
+      ang *= PI / 180;
+      const cosA = cos(ang);
+      const sinA = sin(ang);
+      return [
+        round(10000 * (vec[0] * cosA - vec[1] * sinA)) / 10000,
+        round(10000 * (vec[0] * sinA + vec[1] * cosA)) / 10000,
+      ];
+    };
+
+    const createProjectile = (vx, vy) => {
+      return G_Body(
         {
           proj: true,
           type,
@@ -332,13 +355,35 @@ const G_Game = (owner, name) => {
         mass,
         color,
         r,
-        normalizedVec[0] * speed,
-        normalizedVec[1] * speed,
+        vx * speed,
+        vy * speed,
         x,
         y,
         len
-      ),
-    ];
+      );
+    };
+
+    const ret = [];
+    let mass = 1;
+    let r = 5 / G_SCALE;
+    let len = gameData.maxRoundLength;
+    let vx = normalizedVec[0];
+    let vy = normalizedVec[1];
+    const { color, x, y } = player;
+    switch (type) {
+      case G_action_spread:
+        for (let i = -5; i <= 5; i += 5) {
+          let [vx, vy] = rotateVectorDeg(normalizedVec, i);
+          ret.push(createProjectile(vx, vy));
+        }
+        break;
+      case G_action_move:
+        r = 15 / G_SCALE;
+        len = 1000;
+      default:
+        ret.push(createProjectile(vx, vy));
+    }
+
     return ret;
   };
 
@@ -499,8 +544,9 @@ const G_Game = (owner, name) => {
         return false;
       }
       switch (action) {
-        case 'Shoot':
-        case 'Move':
+        case G_action_spread:
+        case G_action_shoot:
+        case G_action_move:
           const [targetX, targetY, speed] = args.split(',');
           const normalizedVec = getNormalizedVec([
             targetX - player.x,

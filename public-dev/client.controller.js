@@ -19,6 +19,7 @@ G_view_createResources
 G_view_createExplosion
 G_view_loop
 G_view_createTextParticle
+G_view_setInnerHTML
 G_model_isGamePlaying
 G_model_getGameData
 G_model_getMe
@@ -72,11 +73,11 @@ const G_controller_startGame = gameData => {
   G_model_setColor(p.color);
 
   const playersDiv = G_view_getElementById('players');
-  playersDiv.innerHTML = '';
+  G_view_setInnerHTML(playersDiv, '');
   for (let i = 0; i < players.length; i++) {
     const { x, y, name, color } = players[i];
     const div = document.createElement('div');
-    div.innerHTML = name;
+    G_view_setInnerHTML(div, name);
     div.className = 'player-name';
     div.id = 'player-name-' + color;
     const { x: px, y: py } = G_view_worldToPx(x, y);

@@ -2,6 +2,8 @@
 global
 G_AU
 G_SCALE
+G_res_coin
+G_res_spray
 */
 
 const SUN_MASS = 5.0 * 10 ** 30;
@@ -23,15 +25,29 @@ const createPlayerLocation = (x, y, r) => {
   return { x, y, r };
 };
 
-const createCoin = (x, y, posR) => {
+const createResource = (x, y, posR, type) => {
   return {
-    type: 'coin',
+    type,
     value: 250,
     r: G_AU / 4,
     x,
     y,
     posR,
   };
+};
+
+const createCoin = (x, y, posR) => {
+  const r = createResource(x, y, posR, G_res_coin);
+  r.value = 250;
+  return r;
+};
+
+const fourCorners = (cb, x, y) => {
+  return [cb(x, y), cb(-x, y), cb(x, -y), cb(-x, -y)];
+};
+
+const cross = (cb, x, y) => {
+  return [cb(0, y), cb(0, -y), cb(x, 0), cb(-x, 0)];
 };
 
 const G_maps = [
@@ -42,43 +58,31 @@ const G_maps = [
     width: MAP_SIZE_SMALL,
     height: MAP_SIZE_SMALL,
     playerLocations: [
-      createPlayerLocation(0, -MAP_SIZE_SMALL / 3, G_AU),
-      createPlayerLocation(0, MAP_SIZE_SMALL / 3, G_AU),
-      createPlayerLocation(-MAP_SIZE_SMALL / 3, 0, G_AU),
-      createPlayerLocation(MAP_SIZE_SMALL / 3, 0, G_AU),
+      ...cross(
+        (x, y) => createPlayerLocation(x, y, G_AU),
+        MAP_SIZE_SMALL / 3,
+        MAP_SIZE_SMALL / 3
+      ),
     ],
     resourceLocations: [
-      createCoin(-MAP_SIZE_SMALL / 1.8, -MAP_SIZE_SMALL / 1.8, G_AU),
-      createCoin(MAP_SIZE_SMALL / 1.8, -MAP_SIZE_SMALL / 1.8, G_AU),
-      createCoin(-MAP_SIZE_SMALL / 1.8, MAP_SIZE_SMALL / 1.8, G_AU),
-      createCoin(MAP_SIZE_SMALL / 1.8, MAP_SIZE_SMALL / 1.8, G_AU),
-      createCoin(0, MAP_SIZE_SMALL / 1.5, G_AU),
-      createCoin(0, -MAP_SIZE_SMALL / 1.5, G_AU),
-      createCoin(MAP_SIZE_SMALL / 1.5, 0, G_AU),
-      createCoin(-MAP_SIZE_SMALL / 1.5, 0, G_AU),
+      ...fourCorners(
+        (x, y) => createCoin(x, y, G_AU),
+        MAP_SIZE_SMALL / 1.8,
+        MAP_SIZE_SMALL / 1.8
+      ),
+      ...cross(
+        (x, y) => createResource(x, y, G_AU, G_res_spray),
+        MAP_SIZE_SMALL / 1.5,
+        MAP_SIZE_SMALL / 1.5
+      ),
     ],
     planetLocations: [
       createPlanetLocation({ x: 0, y: 0, posR: 0 }),
-      createPlanetLocation({
-        x: -MAP_SIZE_SMALL / 3,
-        y: -MAP_SIZE_SMALL / 3,
-        posR: G_AU,
-      }),
-      createPlanetLocation({
-        x: MAP_SIZE_SMALL / 3,
-        y: -MAP_SIZE_SMALL / 3,
-        posR: G_AU,
-      }),
-      createPlanetLocation({
-        x: -MAP_SIZE_SMALL / 3,
-        y: MAP_SIZE_SMALL / 3,
-        posR: G_AU,
-      }),
-      createPlanetLocation({
-        x: MAP_SIZE_SMALL / 3,
-        y: MAP_SIZE_SMALL / 3,
-        posR: G_AU,
-      }),
+      ...fourCorners(
+        (x, y) => createPlanetLocation({ x, y, posR: G_AU }),
+        MAP_SIZE_SMALL / 3,
+        MAP_SIZE_SMALL / 3
+      ),
     ],
   },
   {
@@ -88,82 +92,40 @@ const G_maps = [
     width: MAP_SIZE_MEDIUM,
     height: MAP_SIZE_MEDIUM,
     playerLocations: [
-      createPlayerLocation(0, -MAP_SIZE_MEDIUM / 1.5, G_AU),
-      createPlayerLocation(0, MAP_SIZE_MEDIUM / 1.5, G_AU),
-      createPlayerLocation(-MAP_SIZE_MEDIUM / 1.5, 0, G_AU),
-      createPlayerLocation(MAP_SIZE_MEDIUM / 1.5, 0, G_AU),
+      ...cross(
+        (x, y) => createPlayerLocation(x, y, G_AU),
+        MAP_SIZE_MEDIUM / 1.5,
+        MAP_SIZE_MEDIUM / 1.5
+      ),
     ],
     resourceLocations: [
-      createCoin(0, -MAP_SIZE_MEDIUM / 2.2, G_AU),
-      createCoin(0, MAP_SIZE_MEDIUM / 2.2, G_AU),
-      createCoin(-MAP_SIZE_MEDIUM / 2.2, 0, G_AU),
-      createCoin(MAP_SIZE_MEDIUM / 2.2, 0, G_AU),
-      createCoin(-MAP_SIZE_MEDIUM / 1.5, -MAP_SIZE_MEDIUM / 1.5, G_AU),
-      createCoin(MAP_SIZE_MEDIUM / 1.5, -MAP_SIZE_MEDIUM / 1.5, G_AU),
-      createCoin(-MAP_SIZE_MEDIUM / 1.5, MAP_SIZE_MEDIUM / 1.5, G_AU),
-      createCoin(MAP_SIZE_MEDIUM / 1.5, MAP_SIZE_MEDIUM / 1.5, G_AU),
+      ...fourCorners(
+        (x, y) => createCoin(x, y, G_AU),
+        MAP_SIZE_MEDIUM / 1.5,
+        MAP_SIZE_MEDIUM / 1.5
+      ),
+      ...cross(
+        (x, y) => createCoin(x, y, G_AU),
+        MAP_SIZE_MEDIUM / 2.2,
+        MAP_SIZE_MEDIUM / 2.2
+      ),
     ],
     planetLocations: [
-      createPlanetLocation({
-        x: G_AU,
-        y: G_AU,
-        posR: 0,
-      }),
-      createPlanetLocation({
-        x: -G_AU,
-        y: -G_AU,
-        posR: 0,
-      }),
-      createPlanetLocation({
-        x: -G_AU,
-        y: G_AU,
-        posR: 0,
-      }),
-      createPlanetLocation({
-        x: G_AU,
-        y: -G_AU,
-        posR: 0,
-      }),
-      createPlanetLocation({
-        x: MAP_SIZE_MEDIUM / 1.1,
-        y: MAP_SIZE_MEDIUM / 1.1,
-        posR: G_AU,
-      }),
-      createPlanetLocation({
-        x: -MAP_SIZE_MEDIUM / 1.1,
-        y: MAP_SIZE_MEDIUM / 1.1,
-        posR: G_AU,
-      }),
-      createPlanetLocation({
-        x: MAP_SIZE_MEDIUM / 1.1,
-        y: -MAP_SIZE_MEDIUM / 1.1,
-        posR: G_AU,
-      }),
-      createPlanetLocation({
-        x: -MAP_SIZE_MEDIUM / 1.1,
-        y: -MAP_SIZE_MEDIUM / 1.1,
-        posR: G_AU,
-      }),
-      createPlanetLocation({
-        x: -MAP_SIZE_MEDIUM / 2.5,
-        y: -MAP_SIZE_MEDIUM / 2.5,
-        posR: G_AU * 2,
-      }),
-      createPlanetLocation({
-        x: MAP_SIZE_MEDIUM / 2.5,
-        y: -MAP_SIZE_MEDIUM / 2.5,
-        posR: G_AU * 2,
-      }),
-      createPlanetLocation({
-        x: -MAP_SIZE_MEDIUM / 2.5,
-        y: MAP_SIZE_MEDIUM / 2.5,
-        posR: G_AU * 2,
-      }),
-      createPlanetLocation({
-        x: MAP_SIZE_MEDIUM / 2.5,
-        y: MAP_SIZE_MEDIUM / 2.5,
-        posR: G_AU * 2,
-      }),
+      ...fourCorners(
+        (x, y) => createPlanetLocation({ x, y, posR: 0 }),
+        G_AU,
+        G_AU
+      ),
+      ...fourCorners(
+        (x, y) => createPlanetLocation({ x, y, posR: G_AU }),
+        MAP_SIZE_MEDIUM / 1.1,
+        MAP_SIZE_MEDIUM / 1.1
+      ),
+      ...fourCorners(
+        (x, y) => createPlanetLocation({ x, y, posR: G_AU * 2 }),
+        MAP_SIZE_MEDIUM / 2.5,
+        MAP_SIZE_MEDIUM / 2.5
+      ),
     ],
   },
 ];

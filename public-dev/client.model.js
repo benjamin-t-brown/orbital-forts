@@ -4,6 +4,8 @@ G_SCALE
 G_SPEEDS
 G_actions
 G_getRandomLocInCircle
+G_res_spray
+G_res_coin
 */
 
 let model_userId = null;
@@ -31,7 +33,11 @@ let model_maps = null;
 let model_menuIds = ['dialog', 'game', 'lobby', 'menu'];
 
 const G_model_isResource = elem => {
-  return elem && elem.type === 'coin';
+  if (elem) {
+    const type = elem.type;
+    return type === G_res_spray || type === G_res_coin;
+  }
+  return false;
 };
 
 const G_model_isPlayer = obj => {
@@ -79,6 +85,7 @@ const G_model_getUserName = () => model_userName;
 const G_model_getMapIndex = () => model_mapIndex;
 const G_model_getMaps = () => model_maps;
 const G_model_getMap = () => model_maps[model_mapIndex];
+const G_model_isPractice = () => G_model_getGameData().players.length === 1;
 
 const G_model_setLoading = v => (model_loading = v);
 const G_model_setWaitingForSimToStart = v => (model_waitingForSimStart = v);

@@ -7,6 +7,8 @@ G_actions
 G_getActionCost
 G_getRandomLocInCircle
 G_getSpeedCost
+G_res_coin
+G_res_spray
 G_model_isResource
 G_model_isPlayer
 G_model_isSimulating
@@ -15,6 +17,7 @@ G_model_isLoading
 G_model_isWaitSelected
 G_model_isWaitingForSimToStart
 G_model_isSelectingTarget
+G_model_isPractice
 G_model_getMe
 G_model_getPlayer
 G_model_getGameName
@@ -41,7 +44,7 @@ const view_getCtx = () => {
   return G_view_getElementById('c').getContext('2d');
 };
 
-const view_setInnerHTML = (elem, html) => {
+const G_view_setInnerHTML = (elem, html) => {
   elem.innerHTML = html;
 };
 
@@ -81,16 +84,17 @@ const view_drawRectangle = (x, y, w, h, color, deg) => {
 const view_getHeadingTowards = (myX, myY, x, y) => {
   let lenY = y - myY;
   let lenX = x - myX;
-  let hyp = Math.sqrt(lenX * lenX + lenY * lenY);
+  const { sqrt, asin } = Math;
+  let hyp = sqrt(lenX * lenX + lenY * lenY);
   let ret = 0;
   if (y >= myY && x >= myX) {
-    ret = (Math.asin(lenY / hyp) * 180) / PI + 90;
+    ret = (asin(lenY / hyp) * 180) / PI + 90;
   } else if (y >= myY && x < myX) {
-    ret = (Math.asin(lenY / -hyp) * 180) / PI - 90;
+    ret = (asin(lenY / -hyp) * 180) / PI - 90;
   } else if (y < myY && x > myX) {
-    ret = (Math.asin(lenY / hyp) * 180) / PI + 90;
+    ret = (asin(lenY / hyp) * 180) / PI + 90;
   } else {
-    ret = (Math.asin(-lenY / hyp) * 180) / PI - 90;
+    ret = (asin(-lenY / hyp) * 180) / PI - 90;
   }
   if (ret >= 360) {
     ret = 360 - ret;
@@ -195,11 +199,6 @@ const G_view_renderSimulation = gameData => {
   const history = G_model_getBroadcastHistory();
 
   view_clearDisplay();
-  // G_view_drawAreas(
-  //   gameData.playerLocations.concat(
-  //     gameData.resourceLocations.concat(gameData.planetLocations)
-  //   )
-  // );
 
   // render previous server states
   for (let i = 0; i < history.length; i++) {
@@ -227,6 +226,10 @@ const G_view_renderSimulation = gameData => {
     for (let i = 0; i < len; i++) {
       const [projectile, other] = collisions[i];
       const { x, y } = G_view_worldToPx(projectile.px, projectile.py);
+      let otherMeta = (other && other.meta) || {};
+      if (otherMeta.player === projectile.meta.player) {
+        continue;
+      }
       if (projectile.meta.type !== 'Move') {
         G_view_createExplosion(x, y);
       }
@@ -237,11 +240,19 @@ const G_view_renderSimulation = gameData => {
       if (G_model_isResource(other)) {
         const player = G_model_getPlayer(projectile.meta.player, gameData);
         G_view_getElementById('res-' + other.id).remove();
+        let txt = '';
+        switch (other.type) {
+          case G_res_coin:
+            txt = '+$' + other.value;
+            break;
+          case G_res_spray:
+            txt = '+Spreadfire';
+        }
         const { x, y } = G_view_worldToPx(other.x, other.y);
         G_view_createTextParticle(
           x,
           y,
-          '+$' + other.value,
+          txt,
           G_view_getColor('light', player.color)
         );
       }
@@ -276,25 +287,46 @@ const G_view_renderSimulation = gameData => {
   gameData.collisions = [];
 };
 
+const view_createElement = (
+  parent,
+  childHtml,
+  childClassName,
+  left,
+  top,
+  id,
+  styles
+) => {
+  styles = styles || {};
+  const style = {
+    position: 'absolute',
+    left: left + 'px',
+    top: top + 'px',
+    ...styles,
+  };
+  const div = document.createElement('div');
+  div.className = childClassName;
+  G_view_setInnerHTML(div, childHtml);
+  div.id = id;
+  for (let i in style) {
+    div.style[i] = style[i];
+  }
+  parent.appendChild(div);
+};
+
 const G_view_createResources = res => {
   const elem = G_view_getElementById('res');
-  view_setInnerHTML(elem, '');
+  G_view_setInnerHTML(elem, '');
   for (let i = 0; i < res.length; i++) {
-    const { x, y, id } = res[i];
+    const { x, y, id, type } = res[i];
     const { x: px, y: py } = G_view_worldToPx(x, y);
-    const style = {
-      position: 'absolute',
-      left: px - 25 + 'px',
-      top: py - 25 + 'px',
-    };
-    const div = document.createElement('div');
-    div.className = 'coin';
-    view_setInnerHTML(div, '$');
-    div.id = 'res-' + id;
-    for (let i in style) {
-      div.style[i] = style[i];
-    }
-    elem.appendChild(div);
+    view_createElement(
+      elem,
+      type === G_res_coin ? '$' : '!',
+      'resource ' + type,
+      px - 25,
+      py - 25,
+      'res-' + id
+    );
   }
 };
 
@@ -303,18 +335,14 @@ const G_view_createExplosion = (x, y) => {
   if (G_view_getElementById(id)) {
     return;
   }
-  const div = document.createElement('div');
-  div.id = id;
-  const style = {
-    position: 'absolute',
-    left: x - 50 + 'px',
-    top: y - 50 + 'px',
-  };
-  for (let i in style) {
-    div.style[i] = style[i];
-  }
-  div.className = 'expl';
-  G_view_getElementById('particles').appendChild(div);
+  view_createElement(
+    G_view_getElementById('particles'),
+    '',
+    'expl',
+    x - 50,
+    y - 50,
+    id
+  );
 };
 
 const G_view_createTextParticle = (x, y, text, color) => {
@@ -322,20 +350,15 @@ const G_view_createTextParticle = (x, y, text, color) => {
   if (G_view_getElementById(id)) {
     return;
   }
-  const div = document.createElement('div');
-  div.id = id;
-  const style = {
-    position: 'absolute',
-    left: x - 200 / 2 + 'px',
-    top: y + 'px',
-    color,
-  };
-  for (let i in style) {
-    div.style[i] = style[i];
-  }
-  div.className = 'text-particle';
-  view_setInnerHTML(div, text);
-  G_view_getElementById('particles').appendChild(div);
+  view_createElement(
+    G_view_getElementById('particles'),
+    text,
+    'text-particle',
+    x - 100,
+    y,
+    id,
+    { color }
+  );
 };
 
 const G_view_drawPlayers = players => {
@@ -395,11 +418,20 @@ const G_view_drawBodies = (bodies, gameData) => {
   }
 };
 
-const view_renderActionButton = (label, helperText, actionName, disabled) => {
+const view_renderActionButton = (
+  label,
+  helperText,
+  actionName,
+  disabled,
+  animated
+) => {
+  const anim = '2s linear infinite border-color;';
   return `<div class="h-button-list">
 <button ${
     disabled ? 'disabled' : ''
-  } onclick="events.confirmAction('${actionName}')" style="width:120px;margin:2px;">${label}</button>
+  } onclick="events.confirmAction('${actionName}')" style="width:120px;margin:2px;animation:${
+    animated ? anim : ''
+  }">${label}</button>
 <div>${helperText}</div>
 </div>`;
 };
@@ -438,19 +470,26 @@ const G_view_renderGameUI = gameData => {
 </div>
 </div>`;
   });
-  view_setInnerHTML(G_view_getElementById('speed-buttons'), htmlSpeeds);
+  G_view_setInnerHTML(G_view_getElementById('speed-buttons'), htmlSpeeds);
+  G_view_getElementById('back-practice').style.display = G_model_isPractice()
+    ? 'block'
+    : 'none';
 
   // action buttons
   let htmlActions = '';
-  G_actions.forEach(([actionName, cost]) => {
-    htmlActions += view_renderActionButton(
-      actionName,
-      `$${cost}`,
-      actionName,
-      G_getSpeedCost(G_model_getSelectedSpeed()) + cost > player.funds
-    );
+  G_actions.forEach(([actionName, cost], i) => {
+    if (player.actions[actionName]) {
+      htmlActions =
+        view_renderActionButton(
+          actionName,
+          `$${cost}`,
+          actionName,
+          G_getSpeedCost(G_model_getSelectedSpeed()) + cost > player.funds,
+          i > 1
+        ) + htmlActions;
+    }
   });
-  view_setInnerHTML(G_view_getElementById('action-buttons'), htmlActions);
+  G_view_setInnerHTML(G_view_getElementById('action-buttons'), htmlActions);
 
   // info
   G_view_getElementById('funds').innerHTML = `Funds: $${player.funds}`;
@@ -468,18 +507,18 @@ const G_view_renderGameUI = gameData => {
   const X = G_view_getElementById('x').cloneNode(true);
   X.id = 'x2';
   X.style.display = 'block';
-  view_setInnerHTML(target, '');
+  G_view_setInnerHTML(target, '');
   target.appendChild(X);
 
   // banner
   const bannerMessage = G_view_getElementById('banner-message');
   const bannerMessage2 = G_view_getElementById('banner-message2');
   if (isWaiting) {
-    view_setInnerHTML(bannerMessage, 'Waiting for other players...');
+    G_view_setInnerHTML(bannerMessage, 'Waiting for other players...');
   } else if (isGameOver) {
-    view_setInnerHTML(bannerMessage, 'The Game is Over!');
+    G_view_setInnerHTML(bannerMessage, 'The Game is Over!');
   } else if (isDead) {
-    view_setInnerHTML(bannerMessage, 'You have been destroyed!');
+    G_view_setInnerHTML(bannerMessage, 'You have been destroyed!');
   } else {
     bannerMessage[
       view_innerHTML
@@ -496,27 +535,27 @@ const G_view_renderGameUI = gameData => {
         winner.name
       }</span>!`;
     } else {
-      view_setInnerHTML(bannerMessage2, `The result is a DRAW!`);
+      G_view_setInnerHTML(bannerMessage2, `The result is a DRAW!`);
     }
-  } else if (!isWaiting && !G_model_isSimulating()) {
-    view_setInnerHTML(
+  } else if (!isWaiting && !G_model_isSimulating() && !isDead) {
+    G_view_setInnerHTML(
       bannerMessage2,
       `<span style="color:${G_view_getColor(
         'light',
         player.color
-      )}">[Right Click/Tap]</span> to set Target.<br /> <span style="color:${G_view_getColor(
+      )}">[Right Click/Dbl Tap]</span> to set Target.<br /> <span style="color:${G_view_getColor(
         'light',
         player.color
-      )}">[Left Click/Two Fingers]</span> to pan.`
+      )}">[Left Click/Tap]</span> to pan.`
     );
   } else {
-    view_setInnerHTML(bannerMessage2, '');
+    G_view_setInnerHTML(bannerMessage2, '');
   }
 };
 
 const G_view_renderGameList = games => {
   const gamesList = G_view_getElementById('games');
-  view_setInnerHTML(gamesList, '');
+  G_view_setInnerHTML(gamesList, '');
   for (let i = 0; i < games.length; i++) {
     const { id, name } = games[i];
     let ind = i + 1;
@@ -528,7 +567,7 @@ const G_view_renderGameList = games => {
 
 const G_view_renderLobby = players => {
   const playersList = G_view_getElementById('players-lobby');
-  view_setInnerHTML(playersList, '');
+  G_view_setInnerHTML(playersList, '');
   for (let i = 0; i < players.length; i++) {
     const { id, userName } = players[i];
     let ind = i + 1;
@@ -549,7 +588,7 @@ const G_view_renderLobby = players => {
   }, '');
   select.value = G_model_getMapIndex();
   select.style.display = isOwner ? 'block' : 'none';
-  view_setInnerHTML(
+  G_view_setInnerHTML(
     G_view_getElementById('lobby-title'),
     G_model_getGameName()
   );

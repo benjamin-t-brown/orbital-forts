@@ -8,6 +8,9 @@ G_R_SET_MAP_INDEX
 G_R_CONFIRM_ACTION
 G_getActionCost
 G_isPanning
+G_action_spread
+G_action_move
+G_action_shoot
 G_client_sendRequest
 G_controller_setUserName
 G_controller_setLoading
@@ -111,8 +114,9 @@ window.events = {
   async confirmAction(action) {
     let args;
     switch (action) {
-      case 'Shoot':
-      case 'Move':
+      case G_action_spread:
+      case G_action_shoot:
+      case G_action_move:
         const [x, y] = G_model_getTargetLocation();
         args = [x, y, G_model_getSelectedSpeed()].join(',');
         break;
