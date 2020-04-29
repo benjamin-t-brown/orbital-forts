@@ -89,7 +89,11 @@ const G_Game = (owner, name) => {
         id: G_user_getId(user),
         name: G_user_getName(user),
         funds: initialFunds,
-        actions: { [G_action_shoot]: true, [G_action_move]: true },
+        actions: {
+          [G_action_shoot]: 99,
+          [G_action_move]: 99,
+          [G_action_spread]: 0,
+        },
         ready: false,
         dead: false,
         hp: 1,
@@ -239,7 +243,7 @@ const G_Game = (owner, name) => {
       // if a projectile hits a 'spray' power-up, add that to the players list of available actions and remove the power-up
       case isSpray(other):
         console.log('COL with spray', projectile, other);
-        player.actions[G_action_spread] = true;
+        player.actions[G_action_spread] += 2;
         removeResource(other.id, gameData);
         break;
       // if a projectile hits a planet, it explodes.  If that projectile was a "Move", then the player is dead
@@ -535,45 +539,33 @@ const G_Game = (owner, name) => {
     },
     confirmAction(action, args, user) {
       const player = getPlayer(user, gameData);
-      if (!player) {
-        console.error('No player exists in game', user);
+      if (!player || player.dead) {
+        console.error('No player exists in game or player is dead.', user);
         return false;
       }
-      if (player.dead) {
-        console.error('Player is dead', user);
+      const [targetX, targetY, speed] = args.split(',');
+      const normalizedVec = getNormalizedVec([
+        targetX - player.x,
+        targetY - player.y,
+      ]);
+      const arr = createProjectiles(
+        action,
+        (G_SPEEDS[speed] && G_SPEEDS[speed][0]) || G_SPEEDS.normal[0],
+        normalizedVec,
+        player
+      );
+      const cost = checkActionCost(action, speed, user);
+      if (cost === false) {
+        console.log('Invalid action, it costs too much.', action, speed);
         return false;
       }
-      switch (action) {
-        case G_action_spread:
-        case G_action_shoot:
-        case G_action_move:
-          const [targetX, targetY, speed] = args.split(',');
-          const normalizedVec = getNormalizedVec([
-            targetX - player.x,
-            targetY - player.y,
-          ]);
-          const arr = createProjectiles(
-            action,
-            (G_SPEEDS[speed] && G_SPEEDS[speed][0]) || G_SPEEDS.normal[0],
-            normalizedVec,
-            player
-          );
-          const cost = checkActionCost(action, speed, user);
-          if (cost === false) {
-            console.log('Invalid action, it costs too much!', action, speed);
-            return false;
-          }
-          gameData.projectiles = gameData.projectiles.concat(arr);
-          player.target = [targetX, targetY];
-          player.funds -= cost;
-          player.cost = cost;
-          break;
-        default:
-          args = null;
-      }
+      gameData.projectiles = gameData.projectiles.concat(arr);
+      player.target = [targetX, targetY];
+      player.funds -= cost;
+      player.cost = cost;
+      player.actions[action] -= player.actions[action] < 99 ? 1 : 0;
       player.action = action;
       player.ready = true;
-
       if (areAllPlayersReady()) {
         console.log('Starting after a moment...');
         setTimeout(() => {

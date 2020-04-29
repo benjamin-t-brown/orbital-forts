@@ -46,6 +46,7 @@ G_model_setGameOver
 G_model_setLoading
 G_model_setPreviousMenu
 G_model_setCurrentMenu
+G_model_setBroadcastHistory
 */
 
 const G_controller_init = () => {
@@ -65,6 +66,7 @@ const G_controller_init = () => {
 const G_controller_startGame = gameData => {
   G_model_setGamePlaying(true);
   G_model_setGameData(gameData);
+  G_model_setBroadcastHistory([]);
   G_controller_showMenu('game');
   const { players, width, height } = gameData;
   G_view_setScreenDimensions(width * 2 * G_SCALE, height * 2 * G_SCALE);
@@ -79,7 +81,7 @@ const G_controller_startGame = gameData => {
     const div = document.createElement('div');
     G_view_setInnerHTML(div, name);
     div.className = 'player-name';
-    div.id = 'player-name-' + color;
+    div.id = 'pl-' + color;
     const { x: px, y: py } = G_view_worldToPx(x, y);
     div.style.left = px - 100 + 'px';
     div.style.top = py - 75 + 'px';
@@ -117,7 +119,7 @@ const G_controller_beginSimulation = gameData => {
   G_view_renderGameUI(gameData);
   G_view_renderSimulation(gameData);
 
-  console.log('BEGIN SIMULATION');
+  console.log('Begin simulation', gameData);
   G_view_loop(() => {
     let currentGameData = G_model_getGameData();
     G_applyGravity(

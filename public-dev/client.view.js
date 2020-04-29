@@ -37,6 +37,8 @@ let view_nowDt;
 let view_started = false;
 let view_loopCb = null;
 let view_innerHTML = 'innerHTML';
+let view_none = 'none';
+let view_block = 'block';
 
 let PI = Math.PI;
 
@@ -246,7 +248,7 @@ const G_view_renderSimulation = gameData => {
             txt = '+$' + other.value;
             break;
           case G_res_spray:
-            txt = '+Spreadfire';
+            txt = '+2 Spreadfire';
         }
         const { x, y } = G_view_worldToPx(other.x, other.y);
         G_view_createTextParticle(
@@ -321,7 +323,7 @@ const G_view_createResources = res => {
     const { x: px, y: py } = G_view_worldToPx(x, y);
     view_createElement(
       elem,
-      type === G_res_coin ? '$' : '!',
+      type === G_res_coin ? '$' : 'Sp',
       'resource ' + type,
       px - 25,
       py - 25,
@@ -372,7 +374,7 @@ const G_view_drawPlayers = players => {
       color === G_model_getColor() ? G_model_getTargetLocation() : target;
     const { x: tPx, y: tPy } = G_view_worldToPx(tx, ty);
 
-    const div = G_view_getElementById('player-name-' + color);
+    const div = G_view_getElementById('pl-' + color);
     div.style.left = px - 100 + 'px';
     div.style.top = py - 75 + 'px';
 
@@ -429,7 +431,7 @@ const view_renderActionButton = (
   return `<div class="h-button-list">
 <button ${
     disabled ? 'disabled' : ''
-  } onclick="events.confirmAction('${actionName}')" style="width:120px;margin:2px;animation:${
+  } onclick="events.confirmAction('${actionName}')" style="width:130px;margin:2px;animation:${
     animated ? anim : ''
   }">${label}</button>
 <div>${helperText}</div>
@@ -450,11 +452,11 @@ const G_view_renderGameUI = gameData => {
   // visibility
   G_view_getElementById('controls').style.display =
     G_model_isSimulating() || isWaiting || isGameOver || isDead
-      ? 'none'
+      ? view_none
       : 'flex';
 
   G_view_getElementById('leave-game').style.display =
-    isGameOver || isDead ? 'block' : 'none';
+    isGameOver || isDead ? view_block : view_none;
 
   // control buttons
   let htmlSpeeds = '';
@@ -463,7 +465,7 @@ const G_view_renderGameUI = gameData => {
     let selected = speedName === G_model_getSelectedSpeed();
     let style = selected ? view_getColorStyles(G_model_getColor()) : '';
     htmlSpeeds += `<div class="action-label" style="pointer-events:${
-      isLoading ? 'none' : 'all'
+      isLoading ? view_none : 'all'
     }">
 <div>Cost $${cost}</div>
 <div class="action" style="${style}" id="${speedName}" onclick="events.setSpeed('${speedName}')">${speedName}
@@ -472,16 +474,17 @@ const G_view_renderGameUI = gameData => {
   });
   G_view_setInnerHTML(G_view_getElementById('speed-buttons'), htmlSpeeds);
   G_view_getElementById('back-practice').style.display = G_model_isPractice()
-    ? 'block'
-    : 'none';
+    ? view_block
+    : view_none;
 
   // action buttons
   let htmlActions = '';
   G_actions.forEach(([actionName, cost], i) => {
-    if (player.actions[actionName]) {
+    const amt = player.actions[actionName];
+    if (amt) {
       htmlActions =
         view_renderActionButton(
-          actionName,
+          actionName + (amt < 99 ? ` (${amt})` : ''),
           `$${cost}`,
           actionName,
           G_getSpeedCost(G_model_getSelectedSpeed()) + cost > player.funds,
@@ -499,14 +502,14 @@ const G_view_renderGameUI = gameData => {
   const loc = G_model_getTargetLocation();
   const { x, y } = G_view_worldToPx(loc[0], loc[1]);
   target.style.display =
-    G_model_isSimulating() || isGameOver || isDead ? 'none' : 'flex';
+    G_model_isSimulating() || isGameOver || isDead ? view_none : 'flex';
   target.style.left = x - 30 + 'px';
   target.style.top = y - 30 + 'px';
   target.style.stroke = G_view_getColor('', G_model_getColor());
   target.className = 'target';
   const X = G_view_getElementById('x').cloneNode(true);
   X.id = 'x2';
-  X.style.display = 'block';
+  X.style.display = view_block;
   G_view_setInnerHTML(target, '');
   target.appendChild(X);
 
@@ -520,20 +523,22 @@ const G_view_renderGameUI = gameData => {
   } else if (isDead) {
     G_view_setInnerHTML(bannerMessage, 'You have been destroyed!');
   } else {
-    bannerMessage[
-      view_innerHTML
-    ] = `You are the <span style="${view_getColorStyles(
-      player.color
-    )}border:1px solid;padding:2px;">${player.color}</span> player.`;
+    G_view_setInnerHTML(
+      bannerMessage,
+      `You are the <span style="${view_getColorStyles(
+        player.color
+      )}border:1px solid;padding:2px;">${player.color}</span> player.`
+    );
   }
   if (isGameOver) {
     const winner = G_model_getPlayer(gameData.result, gameData);
     if (winner) {
-      bannerMessage2[
-        view_innerHTML
-      ] = `The Victor is <span style="${view_getColorStyles(winner.color)}">${
-        winner.name
-      }</span>!`;
+      G_view_setInnerHTML(
+        bannerMessage2,
+        `The Victor is <span style="${view_getColorStyles(winner.color)}">${
+          winner.name
+        }</span>!`
+      );
     } else {
       G_view_setInnerHTML(bannerMessage2, `The result is a DRAW!`);
     }
@@ -587,12 +592,12 @@ const G_view_renderLobby = players => {
     return prev + `<option value=${i}>${curr.name}</option>`;
   }, '');
   select.value = G_model_getMapIndex();
-  select.style.display = isOwner ? 'block' : 'none';
+  select.style.display = isOwner ? view_block : view_none;
   G_view_setInnerHTML(
     G_view_getElementById('lobby-title'),
     G_model_getGameName()
   );
   const start = G_view_getElementById('start');
-  start.style.display = isOwner ? 'block' : 'none';
+  start.style.display = isOwner ? view_block : view_none;
   start.disabled = canStart ? false : true;
 };

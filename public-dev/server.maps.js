@@ -29,7 +29,7 @@ const createResource = (x, y, posR, type) => {
   return {
     type,
     value: 250,
-    r: G_AU / 4,
+    r: G_AU / 3.5,
     x,
     y,
     posR,
