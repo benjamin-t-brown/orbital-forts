@@ -4,6 +4,7 @@ G_AU
 G_SCALE
 G_res_coin
 G_res_spray
+G_res_planetCracker
 */
 
 const SUN_MASS = 5.0 * 10 ** 30;
@@ -43,11 +44,11 @@ const createCoin = (x, y, posR) => {
 };
 
 const fourCorners = (cb, x, y) => {
-  return [cb(x, y), cb(-x, y), cb(x, -y), cb(-x, -y)];
+  return [cb(x, y, 0), cb(-x, y, 1), cb(x, -y, 2), cb(-x, -y, 3)];
 };
 
 const cross = (cb, x, y) => {
-  return [cb(0, y), cb(0, -y), cb(x, 0), cb(-x, 0)];
+  return [cb(0, y, 0), cb(0, -y, 1), cb(x, 0, 2), cb(-x, 0, 3)];
 };
 
 const G_maps = [
@@ -71,7 +72,8 @@ const G_maps = [
         MAP_SIZE_SMALL / 1.8
       ),
       ...cross(
-        (x, y) => createResource(x, y, G_AU, G_res_spray),
+        (x, y, i) =>
+          createResource(x, y, G_AU, i % 2 ? G_res_spray : G_res_planetCracker),
         MAP_SIZE_SMALL / 1.5,
         MAP_SIZE_SMALL / 1.5
       ),

@@ -7,7 +7,7 @@ body {
   line-height: 1.5;
 }
 button {
-  font-size: 15px;
+  font-size: 13px;
   margin: 0.5rem;
   pointer-events: all;
   background-color: #707070;
@@ -223,6 +223,11 @@ select {
   border-color: #606
 }
 
+.crack {
+  background: rgb(105, 0, 204);
+  border-color: rgb(102, 0, 88)
+}
+
 @keyframes expl {
   0% {
     transform: scale(0);
@@ -291,10 +296,7 @@ select {
     font-size: 10px;
   }
   .banner-message {
-    font-size: 14px;
-  }
-  button {
-    font-size: 12px;
+    font-size: 13px;
   }
   body {
     font-size: 12px;

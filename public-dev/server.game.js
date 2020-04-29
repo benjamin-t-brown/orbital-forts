@@ -10,8 +10,6 @@ G_actions
 G_getActionCost
 G_getSpeedCost
 G_getRandomLocInCircle
-G_res_coin
-G_res_spray
 G_S_sendUpdateGameList
 G_S_createMessageSocket
 G_S_randomId
@@ -26,9 +24,13 @@ G_user_unsetGame
 G_user_getId
 G_user_getName
 G_maps
+G_res_coin
+G_res_spray
+G_res_planetCracker
 G_action_move
 G_action_shoot
 G_action_spread
+G_action_planetCracker
 */
 
 const G_Game = (owner, name) => {
@@ -93,6 +95,7 @@ const G_Game = (owner, name) => {
           [G_action_shoot]: 99,
           [G_action_move]: 99,
           [G_action_spread]: 0,
+          [G_action_planetCracker]: 0,
         },
         ready: false,
         dead: false,
@@ -107,7 +110,9 @@ const G_Game = (owner, name) => {
       const p = planetLocations[i];
       const { x, y, mass, color, r, posR } = p;
       const loc = G_getRandomLocInCircle(x, y, posR);
-      gameObj.planets.push(G_Body(color, mass, color, r, 0, 0, loc.x, loc.y));
+      gameObj.planets.push(
+        G_Body({ color, type: 'planet' }, mass, color, r, 0, 0, loc.x, loc.y)
+      );
     }
     for (let i = 0; i < resourceLocations.length; i++) {
       const r = resourceLocations[i];
@@ -158,24 +163,32 @@ const G_Game = (owner, name) => {
         }
       }
 
-      for (let i = 0; i < gameData.projectiles.length; i++) {
-        const p = gameData.projectiles[i];
+      for (let i = 0; i < projectiles.length; i++) {
+        const p = projectiles[i];
         if (p.meta.type === G_action_move) {
           movePlayer(p.meta.player, p.px, p.py);
         }
         if (p.meta.remove) {
-          gameData.projectiles.splice(i, 1);
+          projectiles.splice(i, 1);
           i--;
           continue;
         }
         if (now - startTime >= p.t || isOutOfBounds(p.px, p.py)) {
           collisions.push([p, null]);
-          gameData.projectiles.splice(i, 1);
+          projectiles.splice(i, 1);
           i--;
         }
       }
 
-      if (gameData.projectiles.length === 0) {
+      for (let i = 0; i < planets.length; i++) {
+        const planet = planets[i];
+        if (planet.meta.remove) {
+          planets.splice(i, 1);
+          i--;
+        }
+      }
+
+      if (projectiles.length === 0) {
         stopSimulation();
         return;
       }
@@ -208,6 +221,9 @@ const G_Game = (owner, name) => {
     const isSpray = o => {
       return o.type === G_res_spray;
     };
+    const isPlanetCracker = o => {
+      return o.type === G_res_planetCracker;
+    };
 
     switch (true) {
       // if a projectile hits a player, that player is dead
@@ -217,14 +233,14 @@ const G_Game = (owner, name) => {
         player.dead = true;
         projectile.meta.remove = true;
         break;
-      // if a projectile hits another projectile, check speed.  If other's speed is same or less, remove other.
+      // if a projectile hits another projectile, check mass and speed speed.  If other's mass/speed is same or less, remove other.
       case isProjectile(other):
         if (other.meta.player === projectile.meta.player) {
           return true;
         }
         console.log('COL with other projectile', projectile, other);
-        const s1 = projectile.meta.speed;
-        const s2 = other.meta.speed;
+        const s1 = projectile.meta.speed * projectile.meta.mass;
+        const s2 = other.meta.speed * other.meta.mass;
         if (s1 >= s2) {
           console.log('This proj is faster or same as other, remove other');
           other.meta.remove = true;
@@ -246,13 +262,24 @@ const G_Game = (owner, name) => {
         player.actions[G_action_spread] += 2;
         removeResource(other.id, gameData);
         break;
+      // if a projectile hits a 'planet-cracker' power-up, add that to the players list of available actions and remove the power-up
+      case isPlanetCracker(other):
+        console.log('COL with planet cracker', projectile, other);
+        player.actions[G_action_planetCracker] += 2;
+        removeResource(other.id, gameData);
+        break;
       // if a projectile hits a planet, it explodes.  If that projectile was a "Move", then the player is dead
+      // if the projectile is a planet cracker, then destroy the planet
       case isPlanet(other):
         console.log('COL with planet', projectile, other);
         projectile.meta.remove = true;
-        if (projectile.meta.type === G_action_move) {
+        const type = projectile.meta.type;
+        if (type === G_action_move) {
           console.log('Player died by running into planet');
           player.dead = true;
+        } else if (type === G_action_planetCracker) {
+          console.log('Player removed a planet with a planet cracker!');
+          other.meta.remove = true;
         }
         break;
     }
@@ -340,9 +367,10 @@ const G_Game = (owner, name) => {
       ang *= PI / 180;
       const cosA = cos(ang);
       const sinA = sin(ang);
+      const tenThousand = 10000;
       return [
-        round(10000 * (vec[0] * cosA - vec[1] * sinA)) / 10000,
-        round(10000 * (vec[0] * sinA + vec[1] * cosA)) / 10000,
+        round(tenThousand * (vec[0] * cosA - vec[1] * sinA)) / tenThousand,
+        round(tenThousand * (vec[0] * sinA + vec[1] * cosA)) / tenThousand,
       ];
     };
 
@@ -381,9 +409,14 @@ const G_Game = (owner, name) => {
           ret.push(createProjectile(vx, vy));
         }
         break;
+      case G_action_planetCracker:
+        r = 20 / G_SCALE;
+        mass = 10;
+        ret.push(createProjectile(vx, vy));
+        break;
       case G_action_move:
-        r = 15 / G_SCALE;
         len = 1000;
+        r = 15 / G_SCALE;
       default:
         ret.push(createProjectile(vx, vy));
     }

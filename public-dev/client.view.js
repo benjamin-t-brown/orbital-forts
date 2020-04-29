@@ -7,8 +7,11 @@ G_actions
 G_getActionCost
 G_getRandomLocInCircle
 G_getSpeedCost
+G_action_planetCracker
+G_action_move
 G_res_coin
 G_res_spray
+G_res_planetCracker
 G_model_isResource
 G_model_isPlayer
 G_model_isSimulating
@@ -232,7 +235,7 @@ const G_view_renderSimulation = gameData => {
       if (otherMeta.player === projectile.meta.player) {
         continue;
       }
-      if (projectile.meta.type !== 'Move') {
+      if (projectile.meta.type !== G_action_move) {
         G_view_createExplosion(x, y);
       }
       let ind = gameData.projectiles.indexOf(projectile);
@@ -249,6 +252,9 @@ const G_view_renderSimulation = gameData => {
             break;
           case G_res_spray:
             txt = '+2 Spreadfire';
+            break;
+          case G_res_planetCracker:
+            txt = '+2 PlanetCracker';
         }
         const { x, y } = G_view_worldToPx(other.x, other.y);
         G_view_createTextParticle(
@@ -257,10 +263,14 @@ const G_view_renderSimulation = gameData => {
           txt,
           G_view_getColor('light', player.color)
         );
+      } else if (other && other.meta && other.meta.type === 'planet') {
+        if (projectile.meta.type === G_action_planetCracker) {
+          view_createLargeExplosion(other.px, other.py, G_AU, 30);
+        }
       }
       const hitByProjectile = other && G_model_isPlayer(other, gameData);
       const hitAPlanet =
-        other && projectile.meta.type === 'Move' && !!other.color;
+        other && projectile.meta.type === G_action_move && !!other.color;
       let pl = null;
       if (hitByProjectile) {
         pl = G_model_getPlayer(other.id, gameData);
@@ -276,13 +286,7 @@ const G_view_renderSimulation = gameData => {
           'Eliminated!',
           G_view_getColor('light', pl.color)
         );
-        for (let i = 0; i < 15; i++) {
-          const { x, y } = G_getRandomLocInCircle(pl.x, pl.y, G_AU / 2);
-          const { x: px, y: py } = G_view_worldToPx(x, y);
-          setTimeout(() => {
-            G_view_createExplosion(px, py);
-          }, (i / 12) * 2000);
-        }
+        view_createLargeExplosion(pl.x, pl.y, G_AU / 2, 12);
       }
     }
   }
@@ -321,14 +325,29 @@ const G_view_createResources = res => {
   for (let i = 0; i < res.length; i++) {
     const { x, y, id, type } = res[i];
     const { x: px, y: py } = G_view_worldToPx(x, y);
+    const types = {
+      [G_res_planetCracker]: 'Ck',
+      [G_res_spray]: 'Sp',
+      [G_res_coin]: '$',
+    };
     view_createElement(
       elem,
-      type === G_res_coin ? '$' : 'Sp',
+      types[type],
       'resource ' + type,
       px - 25,
       py - 25,
       'res-' + id
     );
+  }
+};
+
+const view_createLargeExplosion = (xx, yy, r, amt) => {
+  for (let i = 0; i < amt; i++) {
+    const { x, y } = G_getRandomLocInCircle(xx, yy, r);
+    const { x: px, y: py } = G_view_worldToPx(x, y);
+    setTimeout(() => {
+      G_view_createExplosion(px, py);
+    }, (i / amt) * 2000);
   }
 };
 
@@ -401,22 +420,17 @@ const G_view_drawBodies = (bodies, gameData) => {
   for (let i = 0; i < bodies.length; i++) {
     const { meta, px: x, py: y, r, color } = bodies[i];
     const { x: px, y: py } = G_view_worldToPx(x, y);
-    if (typeof meta === 'object') {
-      const pl = G_model_getPlayer(meta.player, gameData);
-      if (meta.player && meta.type === 'Move') {
+    const isPlanet = meta.type === 'planet';
+    let pl;
+    if (!isPlanet) {
+      pl = G_model_getPlayer(meta.player, gameData);
+      if (meta.player && meta.type === G_action_move) {
         pl.x = x;
         pl.y = y;
         continue;
       }
     }
-    view_drawCircle(
-      px,
-      py,
-      r * G_SCALE,
-      typeof meta === 'object'
-        ? G_model_getPlayer(meta.player, gameData).color
-        : color
-    );
+    view_drawCircle(px, py, r * G_SCALE, isPlanet ? color : pl.color);
   }
 };
 
@@ -431,7 +445,7 @@ const view_renderActionButton = (
   return `<div class="h-button-list">
 <button ${
     disabled ? 'disabled' : ''
-  } onclick="events.confirmAction('${actionName}')" style="width:130px;margin:2px;animation:${
+  } onclick="events.confirmAction('${actionName}')" style="width:136px;margin:2px;animation:${
     animated ? anim : ''
   }">${label}</button>
 <div>${helperText}</div>

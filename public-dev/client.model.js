@@ -6,6 +6,7 @@ G_actions
 G_getRandomLocInCircle
 G_res_spray
 G_res_coin
+G_res_planetCracker
 */
 
 let model_userId = null;
@@ -34,8 +35,7 @@ let model_menuIds = ['dialog', 'game', 'lobby', 'menu'];
 
 const G_model_isResource = elem => {
   if (elem) {
-    const type = elem.type;
-    return type === G_res_spray || type === G_res_coin;
+    return [G_res_coin, G_res_spray, G_res_planetCracker].includes(elem.type);
   }
   return false;
 };

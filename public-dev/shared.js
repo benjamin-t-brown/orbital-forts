@@ -34,13 +34,16 @@ let G_SPEEDS = {
 const G_action_move = 'Move';
 const G_action_shoot = 'Shoot';
 const G_action_spread = 'Spreadfire';
+const G_action_planetCracker = 'Planet Crkr';
 const G_res_coin = 'coin';
 const G_res_spray = 'spray';
+const G_res_planetCracker = 'crack';
 
 let G_actions = [
   [G_action_move, 75],
   [G_action_shoot, 0],
   [G_action_spread, 50],
+  [G_action_planetCracker, 200],
 ];
 
 let G_getActionCost = actionName =>

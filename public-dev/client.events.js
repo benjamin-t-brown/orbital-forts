@@ -112,17 +112,10 @@ window.events = {
     G_model_setMapIndex(i);
   },
   async confirmAction(action) {
-    let args;
-    switch (action) {
-      case G_action_spread:
-      case G_action_shoot:
-      case G_action_move:
-        const [x, y] = G_model_getTargetLocation();
-        args = [x, y, G_model_getSelectedSpeed()].join(',');
-        break;
-      default:
-        args = null;
-    }
+    let args = [
+      ...G_model_getTargetLocation(),
+      G_model_getSelectedSpeed(),
+    ].join(',');
     const cost = G_getActionCost(action);
     const player = G_model_getMe(G_model_getGameData());
     const { x, y } = G_view_worldToPx(player.x, player.y);
