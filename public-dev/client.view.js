@@ -311,12 +311,17 @@ const view_createElement = (
   };
   const div = document.createElement('div');
   div.className = childClassName;
-  G_view_setInnerHTML(div, childHtml);
+  if (typeof childHtml === 'string') {
+    G_view_setInnerHTML(div, childHtml);
+  } else {
+    div.appendChild(childHtml);
+  }
   div.id = id;
   for (let i in style) {
     div.style[i] = style[i];
   }
   parent.appendChild(div);
+  return div;
 };
 
 const G_view_createResources = res => {
@@ -325,19 +330,26 @@ const G_view_createResources = res => {
   for (let i = 0; i < res.length; i++) {
     const { x, y, id, type } = res[i];
     const { x: px, y: py } = G_view_worldToPx(x, y);
+    const div = document.createElement('div');
     const types = {
-      [G_res_planetCracker]: 'Ck',
-      [G_res_spray]: 'Sp',
-      [G_res_coin]: '$',
+      [G_res_planetCracker]: 'PlanetCracker',
+      [G_res_spray]: 'Spreadfire',
+      [G_res_coin]: '',
     };
-    view_createElement(
-      elem,
-      types[type],
+    div.innerHTML = types[type];
+    const createdElem = view_createElement(
+      div,
+      type === G_res_coin ? '$' : '!',
       'resource ' + type,
       px - 25,
       py - 25,
       'res-' + id
     );
+    div.style.left = createdElem.style.left;
+    div.style.top = createdElem.style.top;
+    div.className = 'res2';
+    createdElem.style.position = 'unset';
+    elem.appendChild(div);
   }
 };
 

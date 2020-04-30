@@ -73,9 +73,14 @@ const G_maps = [
       ),
       ...cross(
         (x, y, i) =>
-          createResource(x, y, G_AU, i % 2 ? G_res_spray : G_res_planetCracker),
+          createResource(x, y, G_AU, i < 2 ? G_res_spray : G_res_planetCracker),
         MAP_SIZE_SMALL / 1.5,
         MAP_SIZE_SMALL / 1.5
+      ),
+      ...fourCorners(
+        (x, y) => createCoin(x, y, G_AU / 4),
+        MAP_SIZE_SMALL / 1.2,
+        MAP_SIZE_SMALL / 1.2
       ),
     ],
     planetLocations: [
@@ -103,13 +108,41 @@ const G_maps = [
     resourceLocations: [
       ...fourCorners(
         (x, y) => createCoin(x, y, G_AU),
-        MAP_SIZE_MEDIUM / 1.5,
-        MAP_SIZE_MEDIUM / 1.5
+        MAP_SIZE_MEDIUM / 1.8,
+        MAP_SIZE_MEDIUM / 1.8
+      ),
+      ...fourCorners(
+        (x, y) => createCoin(x, y, G_AU / 2),
+        MAP_SIZE_MEDIUM / 3.8,
+        MAP_SIZE_MEDIUM / 3.8
       ),
       ...cross(
-        (x, y) => createCoin(x, y, G_AU),
-        MAP_SIZE_MEDIUM / 2.2,
-        MAP_SIZE_MEDIUM / 2.2
+        (x, y, i) =>
+          createResource(
+            x,
+            y,
+            G_AU / 1,
+            i < 2 ? G_res_spray : G_res_planetCracker
+          ),
+        MAP_SIZE_MEDIUM / 1.1,
+        MAP_SIZE_MEDIUM / 1.1
+      ),
+
+      ...cross(
+        (x, y, i) =>
+          createResource(
+            x,
+            y,
+            G_AU / 1,
+            i >= 2 ? G_res_spray : G_res_planetCracker
+          ),
+        MAP_SIZE_MEDIUM / 2.1,
+        MAP_SIZE_MEDIUM / 2.1
+      ),
+      ...fourCorners(
+        (x, y) => createCoin(x, y, G_AU / 4),
+        MAP_SIZE_MEDIUM / 1.2,
+        MAP_SIZE_MEDIUM / 1.2
       ),
     ],
     planetLocations: [
