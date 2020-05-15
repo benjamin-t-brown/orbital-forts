@@ -17,7 +17,6 @@ G_model_isPlayer
 G_model_isSimulating
 G_model_isGameOver
 G_model_isLoading
-G_model_isWaitSelected
 G_model_isWaitingForSimToStart
 G_model_isSelectingTarget
 G_model_isPractice
@@ -28,6 +27,7 @@ G_model_getColor
 G_model_getUserId
 G_model_getTargetLocation
 G_model_getSelectedSpeed
+G_model_getSelectedAction
 G_model_getTargetLocation
 G_model_getBroadcastHistory
 G_model_getMapIndex
@@ -225,6 +225,13 @@ const G_view_renderSimulation = gameData => {
   G_view_drawBodies(planets, gameData);
   G_view_drawBodies(projectiles, gameData);
 
+  // DEBUG: Draw resource hit-circles
+  // for (let i = 0; i < gameData.resources.length; i++) {
+  //   const { x, y, r } = gameData.resources[i];
+  //   const { x: px, y: py } = G_view_worldToPx(x, y);
+  //   view_drawCircle(px, py, r * G_SCALE, 'white');
+  // }
+
   let collisions = gameData.collisions;
   let len = collisions.length;
   if (len) {
@@ -244,7 +251,7 @@ const G_view_renderSimulation = gameData => {
       }
       if (G_model_isResource(other)) {
         const player = G_model_getPlayer(projectile.meta.player, gameData);
-        G_view_getElementById('res-' + other.id).remove();
+        G_view_getElementById('res-' + other.id).parentElement.remove();
         let txt = '';
         switch (other.type) {
           case G_res_coin:
@@ -341,13 +348,13 @@ const G_view_createResources = res => {
       div,
       type === G_res_coin ? '$' : '!',
       'resource ' + type,
-      px - 25,
-      py - 25,
+      px - 100,
+      py - (type === G_res_coin ? 25 : 45),
       'res-' + id
     );
     div.style.left = createdElem.style.left;
     div.style.top = createdElem.style.top;
-    div.className = 'res2';
+    div.className = 'res2 centered';
     createdElem.style.position = 'unset';
     elem.appendChild(div);
   }
@@ -446,18 +453,12 @@ const G_view_drawBodies = (bodies, gameData) => {
   }
 };
 
-const view_renderActionButton = (
-  label,
-  helperText,
-  actionName,
-  disabled,
-  animated
-) => {
+const view_renderActionButton = (label, helperText, actionName, animated) => {
   const anim = '2s linear infinite border-color;';
+  let selected = G_model_getSelectedAction() === actionName;
+  let style = selected ? view_getColorStyles(G_model_getColor()) : '';
   return `<div class="h-button-list">
-<button ${
-    disabled ? 'disabled' : ''
-  } onclick="events.confirmAction('${actionName}')" style="width:136px;margin:2px;animation:${
+<button class="action" onclick="events.setAction('${actionName}')" style="${style};width:136px;margin:2px;animation:${
     animated ? anim : ''
   }">${label}</button>
 <div>${helperText}</div>
@@ -513,15 +514,23 @@ const G_view_renderGameUI = gameData => {
           actionName + (amt < 99 ? ` (${amt})` : ''),
           `$${cost}`,
           actionName,
-          G_getSpeedCost(G_model_getSelectedSpeed()) + cost > player.funds,
           i > 1
         ) + htmlActions;
     }
   });
   G_view_setInnerHTML(G_view_getElementById('action-buttons'), htmlActions);
 
+  const totalCost =
+    G_getActionCost(G_model_getSelectedAction()) +
+    G_getSpeedCost(G_model_getSelectedSpeed());
+
+  G_view_getElementById('confirm-button').disabled = totalCost > player.funds;
+
   // info
-  G_view_getElementById('funds').innerHTML = `Funds: $${player.funds}`;
+  G_view_setInnerHTML(
+    G_view_getElementById('funds'),
+    `Funds: $${player.funds}`
+  );
 
   // target
   let target = G_view_getElementById('target');

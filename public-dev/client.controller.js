@@ -3,6 +3,7 @@ global
 G_SCALE
 G_PanZoom
 G_applyGravity
+G_action_shoot
 G_client_sendRequest
 G_view_getElementById
 G_view_getNowDt
@@ -36,6 +37,7 @@ G_model_setGameData
 G_model_setGameId
 G_model_setGameName
 G_model_setUserName
+G_model_setSelectedAction
 G_model_setGamePlaying
 G_model_setSelectedSpeed
 G_model_setColor
@@ -137,6 +139,11 @@ const G_controller_endSimulation = gameData => {
   G_model_setSimulating(false);
   if (gameData) {
     G_model_setGameData(gameData);
+    const player = G_model_getMe(gameData);
+    const amt = player.actions[G_model_getSelectedAction()];
+    if (!amt) {
+      G_model_setSelectedAction(G_action_shoot);
+    }
     G_view_renderGameUI(gameData);
     for (let i = 0; i < gameData.projectiles.length; i++) {
       const projectile = gameData.projectiles[i];
@@ -145,19 +152,24 @@ const G_controller_endSimulation = gameData => {
     }
     gameData.projectiles = [];
     G_view_renderSimulation(gameData);
-    const player = G_model_getMe(gameData);
     const { x, y } = G_view_worldToPx(player.x, player.y);
     if (!player.dead) {
-      setTimeout(
-        () =>
-          G_view_createTextParticle(
-            x,
-            y - 30,
-            '+$' + gameData.baseFundsPerRound,
-            G_view_getColor('light', G_model_getColor())
-          ),
-        500
+      const fundsGained = gameData.baseFundsPerRound;
+      G_view_setInnerHTML(
+        G_view_getElementById('banner-message3'),
+        `All players granted $${fundsGained} at completion of the round.`
       );
+      setTimeout(() => {
+        G_view_createTextParticle(
+          x,
+          y - 30,
+          '+$' + fundsGained,
+          G_view_getColor('light', G_model_getColor())
+        );
+      }, 500);
+      setTimeout(() => {
+        G_view_setInnerHTML(G_view_getElementById('banner-message3'), '');
+      }, 3000);
     }
   }
 };

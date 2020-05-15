@@ -3,6 +3,7 @@ global
 G_SCALE
 G_SPEEDS
 G_actions
+G_action_shoot
 G_getRandomLocInCircle
 G_res_spray
 G_res_coin
@@ -19,8 +20,8 @@ let model_broadcastHistory = [];
 let model_loading = false;
 let model_currentMenu = 'menu';
 let model_previousMenu = null;
-let model_selectedAction = 'Wait';
 let model_isSimulating = false;
+let model_selectedAction = G_action_shoot;
 let model_selectedSpeed = 'Normal';
 let model_waitingForSimStart = false;
 let model_targetLocation = [0, 0];
@@ -61,8 +62,6 @@ const G_model_getMe = gameData => {
   return null;
 };
 
-const G_model_isWaitSelected = () => model_selectedAction === 'Wait';
-
 const G_model_isLoading = () => model_loading;
 const G_model_isWaitingForSimToStart = () => model_waitingForSimStart;
 const G_model_isSimulating = () => model_isSimulating;
@@ -72,6 +71,7 @@ const G_model_isGamePlaying = () => model_gameIsPlaying;
 const G_model_getKey = () => model_key;
 const G_model_getBroadcastHistory = () => model_broadcastHistory;
 const G_model_getSelectedSpeed = () => model_selectedSpeed;
+const G_model_getSelectedAction = () => model_selectedAction;
 const G_model_getColor = () => model_color;
 const G_model_getGameId = () => model_gameId;
 const G_model_getUserId = () => model_userId;
@@ -96,6 +96,7 @@ const G_model_setKey = v => (model_key = v);
 const G_model_setBroadcastHistory = v => (model_broadcastHistory = v);
 const G_model_setSelectingTarget = v => (model_selectingTarget = v);
 const G_model_setSelectedSpeed = v => (model_selectedSpeed = v);
+const G_model_setSelectedAction = v => (model_selectedAction = v);
 const G_model_setColor = v => (model_color = v);
 const G_model_setGameId = v => (model_gameId = v);
 const G_model_setUserId = v => (model_userId = v);

@@ -33,6 +33,7 @@ G_model_getUserName
 G_model_getGameId
 G_model_getTargetLocation
 G_model_getSelectedSpeed
+G_model_getSelectedAction
 G_model_getGameData
 G_model_getPreviousMenu
 G_model_getMapIndex
@@ -111,7 +112,8 @@ window.events = {
     }
     G_model_setMapIndex(i);
   },
-  async confirmAction(action) {
+  async confirmAction() {
+    const action = G_model_getSelectedAction();
     let args = [
       ...G_model_getTargetLocation(),
       G_model_getSelectedSpeed(),
@@ -136,8 +138,11 @@ window.events = {
     }
     G_controller_setLoading(false);
   },
+  setAction(action) {
+    G_model_setSelectedAction(action);
+    G_view_renderGameUI(G_model_getGameData());
+  },
   setSpeed(speed) {
-    console.log('SET SPEED', speed);
     G_model_setSelectedSpeed(speed);
     G_view_renderGameUI(G_model_getGameData());
   },
