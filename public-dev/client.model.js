@@ -107,5 +107,5 @@ const G_model_setTargetLocation = v => (model_targetLocation = v);
 const G_model_setGameData = v => (model_gameData = v);
 const G_model_setMenuIds = v => (model_menuIds = v);
 const G_model_setUserName = v => (model_userName = v);
-const G_model_setMapIndex = v => (model_mapIndex = v);
+const G_model_setMapIndex = v => (model_mapIndex = parseInt(v));
 const G_model_setMaps = v => (model_maps = v);

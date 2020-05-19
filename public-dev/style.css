@@ -63,8 +63,8 @@ select {
   width: 100%;
   border: 1px solid white;
   background-color: #444;
-  font-size: 2rem;
   padding: 0.5rem;
+  font-size: 2rem;
 }
 .lobby-player {
   border: 1px solid white;
@@ -204,8 +204,8 @@ select {
 .res2 {
   position: absolute;
   text-align: center;
-	pointer-events: none;
-	width: 200px;
+  pointer-events: none;
+  width: 200px;
 }
 .coin {
   background: #cc0;
@@ -276,6 +276,22 @@ select {
 #confirm-button {
   width: 200px;
   padding: 10px;
+}
+
+.practice-menu {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 270px;
+  border: 1px solid;
+  padding: 15px;
+  margin-top: 8px;
+}
+
+.create-game {
+  background: #055805;
+  border: 1px solid #006400;
+  padding: 15px 30px;
 }
 
 @media only screen and (max-width: 420px) {

@@ -1,5 +1,7 @@
 /*
 global
+G_getMaps
+G_getNumMaps
 G_SCALE
 G_AU
 G_SPEEDS
@@ -10,9 +12,9 @@ G_actions
 G_getActionCost
 G_getSpeedCost
 G_getRandomLocInCircle
-G_S_sendUpdateGameList
-G_S_createMessageSocket
-G_S_randomId
+G_socket_sendUpdateGameList
+G_socket_createMessageSocket
+G_socket_randomId
 G_S_START
 G_S_STOP
 G_S_BROADCAST
@@ -23,7 +25,6 @@ G_S_FINISHED
 G_user_unsetGame
 G_user_getId
 G_user_getName
-G_maps
 G_res_coin
 G_res_spray
 G_res_planetCracker
@@ -61,10 +62,9 @@ const G_Game = (owner, name) => {
     // 'orange',
   ];
 
-  const createGameData = users => {
+  const createGameData = (users, map) => {
     let usersR = randomOrder(users);
 
-    const map = G_maps[mapIndex];
     const {
       // width,
       // height,
@@ -119,7 +119,7 @@ const G_Game = (owner, name) => {
       const { x, y, posR } = r;
       gameObj.resources.push({
         ...r,
-        id: G_S_randomId(),
+        id: G_socket_randomId(),
         ...G_getRandomLocInCircle(x, y, posR),
       });
     }
@@ -130,7 +130,7 @@ const G_Game = (owner, name) => {
   const broadcast = (i, timestamp, gameData) => {
     game.emitAll(
       G_S_BROADCAST,
-      G_S_createMessageSocket({
+      G_socket_createMessageSocket({
         i,
         timestamp,
         gameData,
@@ -294,14 +294,14 @@ const G_Game = (owner, name) => {
     console.log('START SIMULATION');
     startTime = now = +new Date();
     nowDt = 0;
-    game.emitAll(G_S_START_SIMULATION, G_S_createMessageSocket(gameData));
+    game.emitAll(G_S_START_SIMULATION, G_socket_createMessageSocket(gameData));
     timeoutId = setTimeout(stopSimulation, gameData.maxRoundLength);
     intervalId = setInterval(simulate, G_FRAME_MS);
   };
   const stopSimulation = () => {
     console.log('STOP SIMULATION');
     if (started) {
-      game.emitAll(G_S_STOP_SIMULATION, G_S_createMessageSocket(gameData));
+      game.emitAll(G_S_STOP_SIMULATION, G_socket_createMessageSocket(gameData));
       clearInterval(intervalId);
       intervalId = -1;
       clearTimeout(timeoutId);
@@ -379,7 +379,7 @@ const G_Game = (owner, name) => {
         {
           proj: true,
           type,
-          id: G_S_randomId(),
+          id: G_socket_randomId(),
           player: player.id,
           speed,
           color: player.color,
@@ -464,7 +464,10 @@ const G_Game = (owner, name) => {
 
   const updateUsers = () => {
     const playersList = game.getPlayers();
-    game.emitAll(G_S_LOBBY_LIST_UPDATED, G_S_createMessageSocket(playersList));
+    game.emitAll(
+      G_S_LOBBY_LIST_UPDATED,
+      G_socket_createMessageSocket(playersList)
+    );
   };
 
   const game = {
@@ -477,13 +480,13 @@ const G_Game = (owner, name) => {
         userName: G_user_getName(user),
       }));
     },
-    join(user) {
+    async join(user) {
       if (started || isPractice) {
         console.error('Cannot join');
         return false;
       }
 
-      if (users.length < G_maps[mapIndex].maxPlayers) {
+      if (users.length < 4) {
         users.push(user);
         updateUsers();
         return true;
@@ -531,13 +534,14 @@ const G_Game = (owner, name) => {
       }
       return false;
     },
-    start() {
+    async start() {
       started = true;
-      gameData = createGameData(users);
+      const maps = await G_getMaps();
+      gameData = createGameData(users, maps[mapIndex]);
 
       game.emitAll(
         G_S_START,
-        G_S_createMessageSocket({
+        G_socket_createMessageSocket({
           startTime,
           gameData,
         })
@@ -545,29 +549,31 @@ const G_Game = (owner, name) => {
     },
     stop() {
       stopSimulation();
-      game.emitAll(G_S_STOP, G_S_createMessageSocket('The game was stopped.'));
+      game.emitAll(
+        G_S_STOP,
+        G_socket_createMessageSocket('The game was stopped.')
+      );
       users.forEach(user => {
         G_user_unsetGame(user);
       });
-      G_S_sendUpdateGameList();
+      G_socket_sendUpdateGameList();
     },
     finish(result) {
-      console.log('Finish game.');
       gameData.result = result;
-      game.emitAll(G_S_FINISHED, G_S_createMessageSocket(gameData));
+      game.emitAll(G_S_FINISHED, G_socket_createMessageSocket(gameData));
       users.forEach(user => {
         G_user_unsetGame(user);
       });
-      G_S_sendUpdateGameList();
+      G_socket_sendUpdateGameList();
     },
-    setMapIndex(i) {
-      if (i >= 0 && i < G_maps.length) {
+    setPractice() {
+      isPractice = true;
+      initialFunds = 100000;
+    },
+    async setMapIndex(i) {
+      const numMaps = await G_getNumMaps();
+      if (i >= 0 && i < numMaps) {
         mapIndex = i;
-      }
-      if (i === -1) {
-        mapIndex = 0;
-        isPractice = true;
-        initialFunds = 100000;
       }
     },
     confirmAction(action, args, user) {
@@ -614,9 +620,7 @@ const G_Game = (owner, name) => {
     canStart() {
       return isPractice
         ? true
-        : users.length > 1 &&
-            users.length <= G_maps[mapIndex].maxPlayers &&
-            !started;
+        : users.length > 1 && users.length < 4 && !started;
     },
     isPractice() {
       return isPractice;

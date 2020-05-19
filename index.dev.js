@@ -118,12 +118,9 @@ storage
           console.log('Storing in db...');
           const { code } = eval(terser.minify('a=' + JSON.stringify(maps)));
           const obj = eval(code.slice(2));
-          console.log('MAP STR', JSON.stringify(obj));
           await storage.interface.set('maps', obj);
-          const m = await storage.interface.size('maps');
-          const mapList = await storage.interface.get('maps');
-          console.log('MAPS', JSON.stringify(mapList));
-          console.log('Done!', m);
+          const mSize = await storage.interface.size();
+          console.log('Done!', mSize + 'b');
         }
       });
     } else {

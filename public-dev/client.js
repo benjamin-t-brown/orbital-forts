@@ -37,6 +37,7 @@ G_model_setMaps
 G_model_setLoading
 G_view_renderGameList
 G_view_renderLobby
+G_view_init
 */
 
 const G_client_sendRequest = async (type, arg, arg2) => {
@@ -61,7 +62,7 @@ const G_client_sendRequest = async (type, arg, arg2) => {
   const bind = () => {
     // emitted by server on page load
     socket.on(G_S_CONNECTED, ([{ games, maps, id }]) => {
-      console.log('connected load', games, id);
+      console.log('connected load', { games, maps, id });
       G_model_setUserId(id);
       G_model_setMaps(maps);
       G_view_renderGameList(games);
@@ -126,6 +127,7 @@ const G_client_sendRequest = async (type, arg, arg2) => {
     socket = io({ upgrade: false, transports: ['websocket'] });
     bind();
     G_controller_init();
+    G_view_init();
   };
 
   window.addEventListener('load', init, false);

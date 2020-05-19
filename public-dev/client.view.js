@@ -45,6 +45,8 @@ let view_block = 'block';
 
 let PI = Math.PI;
 
+const G_view_init = () => {};
+
 const view_getCtx = () => {
   return G_view_getElementById('c').getContext('2d');
 };
@@ -251,7 +253,13 @@ const G_view_renderSimulation = gameData => {
       }
       if (G_model_isResource(other)) {
         const player = G_model_getPlayer(projectile.meta.player, gameData);
-        G_view_getElementById('res-' + other.id).parentElement.remove();
+        const parent = (G_view_getElementById('res-' + other.id) || {})
+          .parentElement;
+        if (parent) {
+          parent.remove();
+        } else {
+          continue;
+        }
         let txt = '';
         switch (other.type) {
           case G_res_coin:
@@ -453,18 +461,6 @@ const G_view_drawBodies = (bodies, gameData) => {
   }
 };
 
-const view_renderActionButton = (label, helperText, actionName, animated) => {
-  const anim = '2s linear infinite border-color;';
-  let selected = G_model_getSelectedAction() === actionName;
-  let style = selected ? view_getColorStyles(G_model_getColor()) : '';
-  return `<div class="h-button-list">
-<button class="action" onclick="events.setAction('${actionName}')" style="${style};width:136px;margin:2px;animation:${
-    animated ? anim : ''
-  }">${label}</button>
-<div>${helperText}</div>
-</div>`;
-};
-
 const G_view_renderGameUI = gameData => {
   if (!gameData) {
     return;
@@ -603,6 +599,11 @@ const G_view_renderGameList = games => {
       view_innerHTML
     ] += `<button style="background-color:#225;" onclick="events.join('${id}')">${ind}. Join Game: ${name}</button>`;
   }
+
+  G_view_setInnerHTML(
+    G_view_getElementById('map-select-practice'),
+    view_renderMapSelect()
+  );
 };
 
 const G_view_renderLobby = players => {
@@ -622,12 +623,10 @@ const G_view_renderLobby = players => {
   const isOwner = players[0].id === G_model_getUserId();
   const canStart = players.length > 1 && players.length <= map.maxPlayers;
 
-  const select = G_view_getElementById('lobby-map-select');
-  select[view_innerHTML] = G_model_getMaps().reduce((prev, curr, i) => {
-    return prev + `<option value=${i}>${curr.name}</option>`;
-  }, '');
-  select.value = G_model_getMapIndex();
-  select.style.display = isOwner ? view_block : view_none;
+  G_view_setInnerHTML(
+    G_view_getElementById('map-select'),
+    view_renderMapSelect(!isOwner)
+  );
   G_view_setInnerHTML(
     G_view_getElementById('lobby-title'),
     G_model_getGameName()
@@ -635,4 +634,26 @@ const G_view_renderLobby = players => {
   const start = G_view_getElementById('start');
   start.style.display = isOwner ? view_block : view_none;
   start.disabled = canStart ? false : true;
+};
+
+const view_renderActionButton = (label, helperText, actionName, animated) => {
+  const anim = '2s linear infinite border-color;';
+  let selected = G_model_getSelectedAction() === actionName;
+  let style = selected ? view_getColorStyles(G_model_getColor()) : '';
+  return `<div class="h-button-list">
+<button class="action" onclick="events.setAction('${actionName}')" style="${style};width:136px;margin:2px;animation:${
+    animated ? anim : ''
+  }">${label}</button>
+<div>${helperText}</div>
+</div>`;
+};
+
+const view_renderMapSelect = hide => {
+  const options = G_model_getMaps().reduce((prev, curr, i) => {
+    const selected = G_model_getMapIndex() === i ? 'selected' : '';
+    return prev + `<option ${selected} value=${i}>${curr.name}</option>`;
+  }, '');
+  return `<select style="display:${
+    hide ? view_none : view_block
+  }" id="lobby-map-select" class="centered" onchange="events.setMapIndex()">${options}</select>`;
 };

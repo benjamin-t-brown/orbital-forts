@@ -50,8 +50,6 @@ function createZip() {
   archive.finalize();
 }
 
-console.log('ARGV', process.argv);
-
 app
   .set('port', process.env.PORT || 3000)
   .set('storage', process.env.DATABASE_URL || 'sqlite:storage.sqlite')

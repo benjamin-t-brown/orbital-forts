@@ -63,10 +63,12 @@ window.events = {
       const { id, name } = result;
       G_model_setGameId(id);
       G_model_setGameName(name || 'Game Name');
-      G_controller_showMenu('lobby');
-      G_view_renderLobby([
-        { id: G_model_getUserId(), userName: G_model_getUserName() },
-      ]);
+      if (!isPractice) {
+        G_controller_showMenu('lobby');
+        G_view_renderLobby([
+          { id: G_model_getUserId(), userName: G_model_getUserName() },
+        ]);
+      }
 
       if (isPractice) {
         await window.events.start();
