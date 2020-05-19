@@ -4,3 +4,4 @@
 /.build
 *.zip
 *.sqlite
+/map-maker/node_modules

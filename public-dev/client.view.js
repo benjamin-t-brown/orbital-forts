@@ -165,7 +165,7 @@ const G_view_getColor = (colorPrefix, colorName) => {
         blue: 'lightblue',
         red: '#F08080',
         green: 'lightgreen',
-        yellow: '#B8860B',
+        yellow: '#FFF60B',
       },
     }[colorPrefix][colorName] || colorPrefix + colorName
   );

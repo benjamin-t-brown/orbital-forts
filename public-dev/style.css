@@ -113,8 +113,6 @@ select {
 }
 .h-button-list {
   display: flex;
-  /* flex-wrap: wrap;
-	*/
   justify-content: space-between;
   width: 170px;
   pointer-events: all;

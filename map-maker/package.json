@@ -1,0 +1,75 @@
+{
+  "name": "orbital-forts-map-maker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "yarn watch",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "concurrently -n srv,webpack \"node src/srv\" \"webpack-dev-server --client-log-level error\"",
+    "export": "node export.script.js"
+  },
+  "author": "Benjamin Brown",
+  "license": "ISC",
+  "babel": {
+    "plugins": [
+      [
+        "module-resolver",
+        {
+          "root": [
+            "./src"
+          ]
+        }
+      ],
+      "@babel/plugin-proposal-class-properties"
+    ],
+    "presets": [
+      "@babel/preset-react",
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "browsers": "last 1 chrome versions"
+          }
+        }
+      ]
+    ]
+  },
+  "dependencies": {
+    "react": "^16.8.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.2.2",
+    "@babel/node": "^7.4.5",
+    "@babel/plugin-proposal-class-properties": "^7.5.5",
+    "@babel/preset-env": "^7.2.3",
+    "@babel/preset-react": "^7.0.0",
+    "@babel/register": "^7.4.4",
+    "babel-eslint": "^10.0.1",
+    "babel-loader": "^8.0.4",
+    "babel-plugin-module-resolver": "^3.2.0",
+    "body-parser": "^1.19.0",
+    "concurrently": "^5.0.0",
+    "cross-env": "^5.2.0",
+    "dotenv": "^8.2.0",
+    "eslint": "^5.16.0",
+    "eslint-config-prettier": "^6.4.0",
+    "eslint-config-react-app": "^4.0.1",
+    "eslint-plugin-babel": "^5.3.0",
+    "eslint-plugin-flowtype": "^3.10.1",
+    "eslint-plugin-import": "^2.17.3",
+    "eslint-plugin-jsx-a11y": "^6.2.1",
+    "eslint-plugin-mocha": "^5.3.0",
+    "eslint-plugin-prettier": "^3.1.0",
+    "eslint-plugin-react": "^7.13.0",
+    "eslint-plugin-react-hooks": "^1.6.0",
+    "express": "^4.17.1",
+    "prettier": "^1.18.2",
+    "react-dom": "^16.8.0",
+    "react-slider": "^1.0.6",
+    "serialize-javascript": "^2.1.1",
+    "webpack": "^4.28.1",
+    "webpack-cli": "^3.1.2",
+    "webpack-dev-server": "^3.9.0"
+  }
+}

@@ -47,14 +47,13 @@ function G_PanZoom(selector, opts) {
       setTransformMatrix(newTrans);
     };
 
-    // Applying Deltas to Scale and Translate transformations
     const applyScale = (dScale, x, y) => {
       let newTrans = getTransformMatrix();
       let width = ele.width ? ele.width : ele.offsetWidth;
       let height = ele.height ? ele.height : ele.offsetHeight;
       let tranX = x - width / 2;
       let tranY = y - height / 2;
-      dScale = liner ? dScale : dScale * newTrans.scale; // scale either liner or non-liner
+      dScale = liner ? dScale : dScale * newTrans.scale;
       newTrans.scale += dScale;
       let maxOrMinScale =
         newTrans.scale <= minScale || newTrans.scale >= maxScale;
