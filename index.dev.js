@@ -11,16 +11,25 @@ const io = require('socket.io')(server);
 const shared = fs.existsSync('./public-dev/shared.js')
   ? fs.readFileSync('./public-dev/shared.js', 'utf8')
   : '';
+const terser = require('terser');
 
-const serverFiles = fs
-  .readdirSync('./public-dev')
-  .filter(fileName => fileName.includes('server.'))
-  .sort((a, b) => (a.length < b.length ? -1 : 1));
+const isMaps = process.argv[2] === 'maps';
 
-const serverFilesConcat = serverFiles.reduce((prev, curr) => {
-  return '\n' + prev + fs.readFileSync('./public-dev/' + curr).toString();
-}, '');
-console.log('Aux Server Files:', serverFiles);
+const serverFiles = isMaps
+  ? []
+  : fs
+      .readdirSync('./public-dev')
+      .filter(fileName => fileName.includes('server.'))
+      .sort((a, b) => (a.length < b.length ? -1 : 1));
+
+const serverFilesConcat = isMaps
+  ? ''
+  : serverFiles.reduce((prev, curr) => {
+      return '\n' + prev + fs.readFileSync('./public-dev/' + curr).toString();
+    }, '');
+if (!isMaps) {
+  console.log('Aux Server Files:', serverFiles);
+}
 
 const storage = require('./lib/storage');
 
@@ -89,24 +98,54 @@ app
 storage
   .init(app.get('storage'))
   .then(() => {
-    const sandbox = createSandbox();
-    require('vm').runInNewContext(shared + '\n' + serverFilesConcat, sandbox);
-    if (typeof sandbox.module.exports == 'function') {
-      io.on('connection', sandbox.module.exports);
-    } else if (typeof sandbox.module.exports == 'object') {
-      app.use(parser.urlencoded({ extended: true })).use(parser.json());
-      for (let route in sandbox.module.exports) {
-        if (route == 'io') {
-          io.on('connection', sandbox.module.exports[route]);
+    if (isMaps) {
+      console.log('Transferring maps to db...');
+      const MAPS_DIR = 'map-maker/saved-maps';
+      fs.readdir(MAPS_DIR, async (err, files) => {
+        if (err) {
+          console.error(err);
         } else {
-          app.all('/' + route, sandbox.module.exports[route]);
+          console.log('Reading files from ', MAPS_DIR);
+          const maps = files
+            .filter(fileName => fileName.indexOf('.json') > -1)
+            .sort()
+            .map(fileName => {
+              console.log('-', fileName);
+              return JSON.parse(
+                fs.readFileSync(MAPS_DIR + '/' + fileName).toString()
+              );
+            });
+          console.log('Storing in db...');
+          const { code } = eval(terser.minify('a=' + JSON.stringify(maps)));
+          const obj = eval(code.slice(2));
+          console.log('MAP STR', JSON.stringify(obj));
+          await storage.interface.set('maps', obj);
+          const m = await storage.interface.size('maps');
+          const mapList = await storage.interface.get('maps');
+          console.log('MAPS', JSON.stringify(mapList));
+          console.log('Done!', m);
+        }
+      });
+    } else {
+      const sandbox = createSandbox();
+      require('vm').runInNewContext(shared + '\n' + serverFilesConcat, sandbox);
+      if (typeof sandbox.module.exports == 'function') {
+        io.on('connection', sandbox.module.exports);
+      } else if (typeof sandbox.module.exports == 'object') {
+        app.use(parser.urlencoded({ extended: true })).use(parser.json());
+        for (let route in sandbox.module.exports) {
+          if (route == 'io') {
+            io.on('connection', sandbox.module.exports[route]);
+          } else {
+            app.all('/' + route, sandbox.module.exports[route]);
+          }
         }
       }
+      server.listen(app.get('port'), () => {
+        console.log('Server started at port: ' + app.get('port'));
+        createZip();
+      });
     }
-    server.listen(app.get('port'), () => {
-      console.log('Server started at port: ' + app.get('port'));
-      createZip();
-    });
   })
   .catch(err => {
     console.error(err);

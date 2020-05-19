@@ -65,7 +65,31 @@ app.post('/map', (req, res) => {
     valid = true;
   }
 
+  const roundValue = v => Math.round(v);
+
   if (valid) {
+    const map = req.body.map;
+    const { resourceLocations, playerLocations, planetLocations } = map;
+    for (let i = 0; i < resourceLocations.length; i++) {
+      const item = resourceLocations[i];
+      item.x = roundValue(item.x);
+      item.y = roundValue(item.y);
+      item.posR = roundValue(item.posR);
+    }
+    for (let i = 0; i < playerLocations.length; i++) {
+      const item = resourceLocations[i];
+      item.x = roundValue(item.x);
+      item.y = roundValue(item.y);
+      item.r = roundValue(item.r);
+    }
+    for (let i = 0; i < planetLocations.length; i++) {
+      const item = resourceLocations[i];
+      item.x = roundValue(item.x);
+      item.y = roundValue(item.y);
+      item.posR = roundValue(item.posR);
+      item.r = roundValue(item.r);
+    }
+
     fs.writeFile(
       `${MAPS_DIR}/${req.body.map.name}.json`,
       JSON.stringify(req.body.map, null, 2),

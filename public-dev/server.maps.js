@@ -634,5 +634,3 @@ const G_maps = [
     ],
   },
 ];
-
-console.log(JSON.stringify(G_maps, null, 2));
