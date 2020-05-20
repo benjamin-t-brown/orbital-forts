@@ -115,23 +115,4 @@ describe('storage', () => {
         });
     });
 
-    describe('13k limit', () => {
-        it ('set max key', async () => {
-            await interface.clear();
-            assert.equal(await interface.set(limit, '', false), true);
-        });
-        it ('set max value', async () => {
-            await interface.clear();
-            assert.equal(await interface.set('', limit, false), true);
-        });
-        it ('too big key', async () => {
-            await interface.clear();
-            assert.equal(await interface.set(limit, '1', false), false);
-        });
-        it ('too big value', async () => {
-            await interface.clear();
-            assert.equal(await interface.set('1', limit, false), false);
-        });
-    });
-    
 });
