@@ -156,6 +156,7 @@ const G_view_getColor = (colorPrefix, colorName) => {
     {
       '': {
         blue: '#44F',
+        yellow: '#cac200',
       },
       dark: {
         blue: 'darkblue',
@@ -614,7 +615,7 @@ const G_view_renderLobby = players => {
     let ind = i + 1;
     playersList[view_innerHTML] += `<div class="lobby-player">${ind}. ${
       id === G_model_getUserId()
-        ? `<span class="lobby-name">${userName}</span>`
+        ? `<a class="lobby-name">${userName}</a>`
         : userName
     }</div>`;
   }
@@ -622,7 +623,6 @@ const G_view_renderLobby = players => {
   const map = G_model_getMap();
   const isOwner = players[0].id === G_model_getUserId();
   const canStart = players.length > 1 && players.length <= map.maxPlayers;
-
   G_view_setInnerHTML(
     G_view_getElementById('map-select'),
     view_renderMapSelect(!isOwner)
@@ -630,6 +630,10 @@ const G_view_renderLobby = players => {
   G_view_setInnerHTML(
     G_view_getElementById('lobby-title'),
     G_model_getGameName()
+  );
+  G_view_setInnerHTML(
+    G_view_getElementById('player-count'),
+    `${players.length} of 4 joined (at least 2 required to start)`
   );
   const start = G_view_getElementById('start');
   start.style.display = isOwner ? view_block : view_none;

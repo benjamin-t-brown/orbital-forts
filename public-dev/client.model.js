@@ -81,7 +81,7 @@ const G_model_getPreviousMenu = () => model_previousMenu;
 const G_model_getTargetLocation = () => model_targetLocation;
 const G_model_getGameData = () => model_gameData;
 const G_model_getMenuIds = () => model_menuIds;
-const G_model_getUserName = () => model_userName;
+const G_model_getUserName = () => model_userName || 'Player';
 const G_model_getMapIndex = () => model_mapIndex;
 const G_model_getMaps = () => model_maps;
 const G_model_getMap = () => model_maps[model_mapIndex];

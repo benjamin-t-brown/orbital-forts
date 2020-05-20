@@ -32,7 +32,7 @@ const User = socket => {
 };
 
 const G_user_getId = user => user[0].id;
-const G_user_getName = user => user[2] || G_user_getId(user);
+const G_user_getName = user => user[2];
 const G_user_setName = (user, name) => (user[2] = name);
 const G_user_getGame = user => user[1];
 const G_user_setGame = (user, game) => (user[1] = game);
@@ -94,7 +94,9 @@ const G_socket_getAllGames = () => {
 };
 const G_socket_getAllLobbies = () => {
   return G_socket_getAllGames().filter(game => {
-    return !game.isStarted() && !game.isPractice();
+    return (
+      !game.isStarted() && !game.isPractice() && game.getPlayers().length < 4
+    );
   });
 };
 

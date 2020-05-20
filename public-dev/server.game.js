@@ -48,7 +48,7 @@ const G_Game = (owner, name) => {
   let broadcastEvery = 10; // broadcast every this number of frames
   let frame = 0;
   let FORT_SIZE = 25 / G_SCALE;
-  let initialFunds = 100;
+  let initialFunds = 175;
   let baseFundsPerRound = 25;
   let mapIndex = 0;
   const colors = [
@@ -620,7 +620,7 @@ const G_Game = (owner, name) => {
     canStart() {
       return isPractice
         ? true
-        : users.length > 1 && users.length < 4 && !started;
+        : users.length > 1 && users.length <= 4 && !started;
     },
     isPractice() {
       return isPractice;

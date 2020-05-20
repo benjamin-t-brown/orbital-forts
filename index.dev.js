@@ -120,7 +120,14 @@ storage
           const obj = eval(code.slice(2));
           await storage.interface.set('maps', obj);
           const mSize = await storage.interface.size();
-          console.log('Done!', mSize + 'b');
+          const mapsStorage = await storage.interface.get('maps');
+          console.log(
+            'Done!',
+            mSize + 'b,',
+            mapsStorage.length,
+            'maps',
+            maps.length
+          );
         }
       });
     } else {

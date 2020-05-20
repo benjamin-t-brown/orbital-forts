@@ -3,7 +3,7 @@ import NoSelect from 'elements/NoSelect';
 import Select from 'elements/Select';
 import Slider from 'elements/Slider';
 import Button from 'elements/Button';
-import { AU, SCALE, RES, RES_TYPE_TO_NAME } from 'globals';
+import { AU, SCALE, SUB_MENU_PLANET } from 'globals';
 import { getColorStyles } from 'theme';
 
 const SubMenuPlanet = ({ planetLocation, map, app }) => {
@@ -72,7 +72,7 @@ const SubMenuPlanet = ({ planetLocation, map, app }) => {
         />
         <Slider
           label={`Size ${scaleR} / SCALE`}
-          min={60}
+          min={40}
           max={800}
           step={5}
           value={scaleR}
@@ -84,6 +84,21 @@ const SubMenuPlanet = ({ planetLocation, map, app }) => {
             app.saveMap(map);
           }}
         />
+        <Button
+          style={getColorStyles('green')}
+          onClick={() => {
+            const newPlanetLoc = { ...planetLocation };
+            const { x: wx, y: wy } = app.getTargetWorldLocation(map);
+            newPlanetLoc.x = wx;
+            newPlanetLoc.y = wy;
+            map.planetLocations.push(newPlanetLoc);
+            app.setSelectedItem(newPlanetLoc, SUB_MENU_PLANET);
+            app.saveMap(map);
+            app.render();
+          }}
+        >
+          Duplicate
+        </Button>
         <Button
           style={getColorStyles('red')}
           onClick={() => {

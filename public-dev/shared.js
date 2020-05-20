@@ -28,7 +28,7 @@ const G_FRAME_MS = 13.3333;
 
 let G_SPEEDS = {
   Normal: [55000, 0],
-  Super: [125000, 100],
+  Super: [125000, 75],
 };
 
 const G_action_move = 'Move';
@@ -40,9 +40,9 @@ const G_res_spray = 'spray';
 const G_res_planetCracker = 'crack';
 
 let G_actions = [
-  [G_action_move, 75],
+  [G_action_move, 50],
   [G_action_shoot, 0],
-  [G_action_spread, 50],
+  [G_action_spread, 100],
   [G_action_planetCracker, 200],
 ];
 

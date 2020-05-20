@@ -7,6 +7,7 @@ import SubMenuPlayerSpawn from 'components/SubMenuPlayerSpawn';
 import SubMenuResource from 'components/SubMenuResource';
 import SubMenuMap from 'components/SubMenuMap';
 import SubMenuConfirm from 'components/SubMenuConfirm';
+import Button from 'elements/Button';
 
 import { useFetch } from 'hooks';
 import {
@@ -38,6 +39,7 @@ export default ({ defaultMapName }) => {
   const [selectedItem, setSelectedItem] = React.useState(null);
   const [render, setRender] = React.useState(1);
   const [targetLoc, setTargetLoc] = React.useState({ x: 0, y: 0 });
+  const [exportLoading, setExportLoading] = React.useState(false);
 
   const app = {
     render: () => {
@@ -294,6 +296,44 @@ export default ({ defaultMapName }) => {
           {menu === MENU_MAP ? <MenuMap app={app} map={map} /> : null}
         </div>
       </div>
+      <Button
+        disabled={exportLoading}
+        style={{
+          zIndex: 100,
+          position: 'fixed',
+          left: 0,
+          top: 0,
+        }}
+        onClick={async () => {
+          setExportLoading(true);
+          const type = 'GET';
+          const url = '/export';
+          const opts = {
+            method: type,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          };
+          console.log('[fetch]', type, url, opts.body);
+          const data = await fetch(url, opts)
+            .then(async function(response) {
+              const json = await response.json();
+              console.log('[fetch]', 'result', type, url, json);
+              return json;
+            })
+            .catch(err => {
+              throw err;
+            });
+          if (data.err) {
+            console.error(data.err);
+          } else {
+            console.log('Maps exported');
+            setExportLoading(false);
+          }
+        }}
+      >
+        Export
+      </Button>
     </div>
   );
 };

@@ -55,7 +55,7 @@ const MenuMap = ({ app, map }) => {
             const { x: wx, y: wy } = app.getTargetWorldLocation(map);
             const res = {
               type: RES_COIN,
-              value: 250,
+              value: 200,
               r: 46750000000,
               x: wx,
               y: wy,

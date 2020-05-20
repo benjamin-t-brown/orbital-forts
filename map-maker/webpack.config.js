@@ -32,6 +32,7 @@ module.exports = {
     proxy: {
       '/map': 'http://localhost:9999',
       '/maps': 'http://localhost:9999',
+      '/export': 'http://localhost:9999',
       '/*.png': 'http://localhost:9999',
       '/*.txt': 'http://localhost:9999',
       '/*.json': 'http://localhost:9999',

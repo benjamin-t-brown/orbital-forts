@@ -25,6 +25,23 @@ const execAsync = cmd => {
   });
 };
 
+app.get('/export', async (req, res) => {
+  console.log(`[MapMaker SRV] GET/maps`, req.body);
+  const resp = {
+    success: false,
+    err: null,
+  };
+
+  console.log(
+    '[MapMaker SRV]',
+    await execAsync(`cd ${__dirname}/../../../ && npm run maps`)
+  );
+
+  resp.success = true;
+
+  res.send(JSON.stringify(resp));
+});
+
 app.get('/maps', (req, res) => {
   console.log(`[MapMaker SRV] GET/maps`, req.body);
   const resp = {
@@ -77,13 +94,13 @@ app.post('/map', (req, res) => {
       item.posR = roundValue(item.posR);
     }
     for (let i = 0; i < playerLocations.length; i++) {
-      const item = resourceLocations[i];
+      const item = playerLocations[i];
       item.x = roundValue(item.x);
       item.y = roundValue(item.y);
       item.r = roundValue(item.r);
     }
     for (let i = 0; i < planetLocations.length; i++) {
-      const item = resourceLocations[i];
+      const item = planetLocations[i];
       item.x = roundValue(item.x);
       item.y = roundValue(item.y);
       item.posR = roundValue(item.posR);

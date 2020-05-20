@@ -54,6 +54,7 @@ G_model_isSimulating
 window.events = {
   async create(isPractice) {
     G_controller_setUserName(G_view_getElementById('player-name-input').value);
+    console.log('CREATE', G_model_getUserName());
     const { result, err } = await G_client_sendRequest(
       G_R_CREATE,
       `${G_model_getUserId()}/${G_model_getUserName() ||

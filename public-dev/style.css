@@ -33,8 +33,11 @@ input {
   margin: 7px;
 }
 select {
-  max-width: 200px;
+  max-width: 140px;
   margin: 5px;
+}
+span {
+  font-size: 12px;
 }
 .centered {
   display: flex;
@@ -292,6 +295,9 @@ select {
   background: #055805;
   border: 1px solid #006400;
   padding: 15px 30px;
+}
+.create-game:hover {
+  background-color: #255815;
 }
 
 @media only screen and (max-width: 420px) {

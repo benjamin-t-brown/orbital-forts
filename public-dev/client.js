@@ -104,7 +104,7 @@ const G_client_sendRequest = async (type, arg, arg2) => {
       }
     });
     socket.on(G_S_FINISHED, ([gameData]) => {
-      console.log('GAME OVER', gameData);
+      console.log('game over', gameData);
       G_controller_finishGame(gameData);
     });
 
