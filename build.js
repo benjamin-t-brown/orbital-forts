@@ -78,13 +78,13 @@ const build = async () => {
 
   console.log('\nMinify code...');
   await execAsync(
-    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,drop_console,ecma=9 --mangle -o public/client.js -- .build/client.tmp.js'
+    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,ecma=9 --mangle -o public/client.js -- .build/client.tmp.js'
   );
   await execAsync(
-    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,drop_console,ecma=9 --mangle -o public/server.js -- .build/server.tmp.js'
+    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,ecma=9 --mangle -o public/server.js -- .build/server.tmp.js'
   );
   await execAsync(
-    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,drop_console,ecma=9 --mangle -o public/shared.js -- .build/shared.tmp.js'
+    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,ecma=9 --mangle -o public/shared.js -- .build/shared.tmp.js'
   );
   await execAsync('uglifycss --output public/style.css public-dev/style.css');
   console.log('minify html: public/index.html');
