@@ -78,10 +78,10 @@ const build = async () => {
 
   console.log('\nMinify code...');
   await execAsync(
-    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,ecma=9 --mangle -o public/client.js -- .build/client.tmp.js'
+    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,drop_console,ecma=9 --mangle -o public/client.js -- .build/client.tmp.js'
   );
   await execAsync(
-    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,ecma=9 --mangle -o public/server.js -- .build/server.tmp.js'
+    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,drop_console,ecma=9 --mangle -o public/server.js -- .build/server.tmp.js'
   );
   await execAsync(
     'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,ecma=9 --mangle -o public/shared.js -- .build/shared.tmp.js'
@@ -103,6 +103,9 @@ const build = async () => {
       useShortDoctype: true,
     })
   );
+
+  console.log('\nExport maps to sqlite...');
+  await execAsync('npm run maps');
 
   if (useZip) {
     console.log('\nZip (command line)...');
