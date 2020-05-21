@@ -4,7 +4,7 @@ G_R_CREATE
 G_R_JOIN
 G_R_LEAVE
 G_R_START
-G_R_SET_MAP_INDEX
+G_R_UPDATE_LOBBY
 G_R_CONFIRM_ACTION
 G_S_CONNECTED
 G_S_LIST_UPDATED
@@ -20,25 +20,33 @@ G_AU
 G_FRAME_MS
 G_Body
 G_Game
-G_applyGravity
+G_randomId
 G_getMaps
 */
 
+const G_MAX_GAMES = 10;
+const G_MAX_PLAYERS_PER_GAME = 4;
+
 const G_users = {};
 
-const User = socket => {
-  // [socket, game, userName]
-  return [socket, '', ''];
+const User = (socket, key) => {
+  // [socket, game, userName, key]
+  return [socket, '', '', key];
 };
 
 const G_user_getId = user => user[0].id;
+const G_user_getKey = user => user[3];
 const G_user_getName = user => user[2];
 const G_user_setName = (user, name) => (user[2] = name);
 const G_user_getGame = user => user[1];
 const G_user_setGame = (user, game) => (user[1] = game);
 const G_user_unsetGame = user => (user[1] = null);
-const G_user_errorGameExists = user => `Game exists: ${G_user_getName(user)}`;
-const G_user_errorGameDoesNotExist = user => `No game: ${G_user_getName(user)}`;
+const G_user_errorGameExists = user =>
+  `User in another game: ${G_user_getName(user)}`;
+const G_user_errorGameDoesNotExist = user =>
+  `No game for user: ${G_user_getName(user)}`;
+const G_user_errorMaxGamesExceeded = user =>
+  `Max games supported exceeded: ${G_user_getName(user)}`;
 
 const G_socket_createMessageSocket = (payload, err) => {
   return [payload, err];
@@ -51,9 +59,9 @@ const G_socket_createMessageRest = (payload, err) => {
 const G_socket_randomId = () => (+new Date() * Math.random()).toString(16);
 
 const G_socket_wrapTryCatch = cb => {
-  return (req, res) => {
+  return async (req, res) => {
     try {
-      cb(req, res);
+      await cb(req, res);
     } catch (e) {
       console.error('ERROR', e.stack);
       res.send(G_socket_createMessageRest(null, 'Error.'));
@@ -95,9 +103,14 @@ const G_socket_getAllGames = () => {
 const G_socket_getAllLobbies = () => {
   return G_socket_getAllGames().filter(game => {
     return (
-      !game.isStarted() && !game.isPractice() && game.getPlayers().length < 4
+      !game.isStarted() &&
+      !game.isPractice() &&
+      game.getPlayers().length < G_MAX_PLAYERS_PER_GAME
     );
   });
+};
+const G_socket_getNumberOfGames = () => {
+  return G_socket_getAllGames().length;
 };
 
 const G_socket_emitAllUsers = (type, obj, userIdIgnore) => {
@@ -117,10 +130,18 @@ const G_socket_sendUpdateGameList = () => {
   );
 };
 
-const G_socket_assertUser = (id, res) => {
+const G_socket_assertUser = (id, req, res) => {
   const user = G_socket_getUserById(id);
   if (!user) {
-    res.send(G_socket_createMessageRest(null, `No user: ${id}`));
+    res.send(G_socket_createMessageRest(null, `No user: id=${id}`));
+    return false;
+  }
+  const userKey = G_user_getKey(user);
+  const headerKey = req.headers.key;
+  if (userKey !== headerKey) {
+    res.send(
+      G_socket_createMessageRest(null, `Unauthorized (invalid key): id=${id}`)
+    );
     return false;
   }
   return user;
@@ -138,7 +159,7 @@ const server = {
   [G_R_CREATE + '/:id/:userName/:isPractice']: G_socket_wrapTryCatch(
     async (req, res) => {
       const { id, userName, isPractice } = req.params;
-      const user = G_socket_assertUser(id, res);
+      const user = G_socket_assertUser(id, req, res);
       if (!user) {
         return;
       }
@@ -147,130 +168,187 @@ const server = {
         return;
       }
       const game = G_user_getGame(user);
-      if (!game) {
-        G_user_setName(user, userName);
-        const gameName = `${userName}'s Game`;
-        console.log('Create game', gameName, isPractice);
-        const g = G_Game(user, gameName);
-        G_user_setGame(user, g);
-        if (isPractice === 'true') {
-          await g.setPractice();
-        }
-        res.send(G_socket_createMessageRest({ id: g.id, name: gameName }));
-        G_socket_sendUpdateGameList();
-      } else {
+      if (game) {
         res.send(
           G_socket_createMessageRest(null, G_user_errorGameExists(user))
         );
+        return;
       }
+      if (G_socket_getNumberOfGames() >= G_MAX_GAMES) {
+        res.send(
+          G_socket_createMessageRest(null, G_user_errorMaxGamesExceeded(user))
+        );
+        return;
+      }
+      G_user_setName(user, userName);
+      const gameName = `${userName}'s Game`;
+      console.log('Create game', gameName, 'isPractice=' + isPractice);
+      const g = G_Game(user, gameName);
+      G_user_setGame(user, g);
+      if (isPractice === 'true') {
+        await g.setPractice();
+      }
+      res.send(
+        G_socket_createMessageRest({
+          id: g.id,
+          name: gameName,
+          lobbyData: g.getLobbyData(),
+        })
+      );
+      G_socket_sendUpdateGameList();
     }
   ),
+  [G_R_UPDATE_LOBBY + '/:id/:args']: G_socket_wrapTryCatch(async (req, res) => {
+    const { id, args } = req.params;
+    const [mapIndex] = args.split(',');
+    const user = G_socket_assertUser(id, req, res);
+    if (!user) {
+      return;
+    }
+
+    const game = G_user_getGame(user);
+    if (!game) {
+      res.send(
+        G_socket_createMessageRest(null, G_user_errorGameDoesNotExist(user))
+      );
+      return;
+    }
+    await game.setMapIndex(mapIndex);
+    game.updateLobby();
+    res.send(
+      G_socket_createMessageRest({
+        id: game.id,
+        name: game.name,
+        lobbyData: game.getLobbyData(),
+      })
+    );
+  }),
   [G_R_JOIN + '/:id/:args']: G_socket_wrapTryCatch(async (req, res) => {
     const { id, args } = req.params;
     const i = args.indexOf(',');
     const gameId = args.slice(0, i);
     const userName = args.slice(i + 1);
-    const user = G_socket_assertUser(id, res);
+    const user = G_socket_assertUser(id, req, res);
     if (!user) {
       return;
     }
+    console.log('JOIN', id, args);
     const game = G_socket_getGameById(gameId);
-    if (game) {
-      G_user_setGame(user, game);
-      G_user_setName(user, userName);
-      console.log('Join game', G_user_getName(user), game.name);
-      if (await game.join(user)) {
-        res.send(
-          G_socket_createMessageRest({
-            id: game.id,
-            name: game.name,
-            players: game.getPlayers(),
-          })
-        );
-        G_socket_sendUpdateGameList();
-      } else {
-        res.send(G_socket_createMessageRest(null, `Cannot join.`));
-      }
-    } else {
-      res.send(G_socket_createMessageRest(null, G_user_errorGameExists(user)));
-    }
-  }),
-  [G_R_LEAVE + '/:id']: G_socket_wrapTryCatch((req, res) => {
-    const { id } = req.params;
-    const user = G_socket_assertUser(id, res);
-    if (!user) {
-      return;
-    }
-    const game = G_user_getGame(user);
-    if (game) {
-      console.log('Leave game', G_user_getName(user), game.name);
-      G_user_unsetGame(user, game);
-      game.leave(user);
-      res.send(G_socket_createMessageRest(game.id));
-      G_socket_sendUpdateGameList();
-    } else {
-      res.send(G_socket_createMessageRest(null, G_user_errorGameExists(user)));
-    }
-  }),
-  [G_R_START + '/:id/:mapIndex']: G_socket_wrapTryCatch(async (req, res) => {
-    const { id, mapIndex } = req.params;
-    const user = G_socket_assertUser(id, res);
-    if (!user) {
-      return;
-    }
-    const game = G_user_getGame(user);
-    if (game) {
-      if (game.canStart()) {
-        console.log('Start game', game.name);
-        res.send(G_socket_createMessageRest(true));
-        await game.setMapIndex(Number(mapIndex));
-        await game.start();
-        G_socket_sendUpdateGameList();
-      } else {
-        res.send(G_socket_createMessageRest(null, 'Cannot start yet.'));
-      }
-    } else {
-      console.log('error', G_socket_getAllLobbies());
+    if (!game) {
+      console.log('no game found');
       res.send(
         G_socket_createMessageRest(null, G_user_errorGameDoesNotExist(user))
       );
+      return;
     }
+
+    G_user_setGame(user, game);
+    G_user_setName(user, userName);
+    console.log('Join game', G_user_getName(user), game.name);
+    const joinSuccessful = await game.join(user);
+    if (!joinSuccessful) {
+      res.send(G_socket_createMessageRest(null, `Cannot join.`));
+      return;
+    }
+
+    res.send(
+      G_socket_createMessageRest({
+        id: game.id,
+        name: game.name,
+        lobbyData: game.getLobbyData(),
+      })
+    );
+    G_socket_sendUpdateGameList();
+  }),
+  [G_R_LEAVE + '/:id']: G_socket_wrapTryCatch((req, res) => {
+    const { id } = req.params;
+    const user = G_socket_assertUser(id, req, res);
+    if (!user) {
+      return;
+    }
+    const game = G_user_getGame(user);
+    if (!game) {
+      res.send(
+        G_socket_createMessageRest(null, G_user_errorGameDoesNotExist(user))
+      );
+      return;
+    }
+    console.log('Leave game', G_user_getName(user), game.name);
+    G_user_unsetGame(user, game);
+    game.leave(user);
+    res.send(G_socket_createMessageRest(game.id));
+    G_socket_sendUpdateGameList();
+  }),
+  [G_R_START + '/:id/:mapIndex']: G_socket_wrapTryCatch(async (req, res) => {
+    const { id, mapIndex } = req.params;
+    const user = G_socket_assertUser(id, req, res);
+    if (!user) {
+      return;
+    }
+    const game = G_user_getGame(user);
+    if (!game) {
+      res.send(
+        G_socket_createMessageRest(null, G_user_errorGameDoesNotExist(user))
+      );
+      return;
+    }
+    if (!game.canStart()) {
+      res.send(G_socket_createMessageRest(null, 'Cannot start yet.'));
+      return;
+    }
+
+    console.log(
+      'Start game',
+      G_user_getName(user),
+      'name=' + game.name,
+      'mapIndex=' + mapIndex
+    );
+    res.send(G_socket_createMessageRest(true));
+    await game.setMapIndex(Number(mapIndex));
+    await game.start();
+    G_socket_sendUpdateGameList();
   }),
   [G_R_CONFIRM_ACTION + '/:id/:action/:args']: G_socket_wrapTryCatch(
     (req, res) => {
       const { id, action, args } = req.params;
-      const user = G_socket_assertUser(id, res);
+      const user = G_socket_assertUser(id, req, res);
       if (!user) {
         return;
       }
 
       const game = G_user_getGame(user);
-      if (game) {
-        if (game.isStarted()) {
-          console.log(
-            'Confirm action',
-            game.name,
-            G_user_getName(user),
-            action,
-            args
-          );
-          if (game.confirmAction(action, args, user)) {
-            res.send(G_socket_createMessageRest(true));
-          } else {
-            res.send(G_socket_createMessageRest(null, 'Cannot confirm.'));
-          }
-        } else {
-          res.send(G_socket_createMessageRest(null, 'Game not started.'));
-        }
-      } else {
+      if (!game) {
         res.send(
           G_socket_createMessageRest(null, G_user_errorGameDoesNotExist(user))
         );
+        return;
       }
+
+      if (!game.isStarted()) {
+        res.send(G_socket_createMessageRest(null, 'Game not started.'));
+        return;
+      }
+
+      const actionWasConfirmed = game.confirmAction(action, args, user);
+      if (!actionWasConfirmed) {
+        res.send(G_socket_createMessageRest(null, 'Cannot confirm.'));
+        return;
+      }
+
+      console.log(
+        'Confirm action',
+        game.name,
+        G_user_getName(user),
+        action,
+        args
+      );
+
+      res.send(G_socket_createMessageRest(true));
     }
   ),
   io: async socket => {
-    const user = User(socket);
+    const key = G_randomId();
+    const user = User(socket, key);
     G_users[socket.id] = user;
 
     socket.on(
@@ -280,13 +358,16 @@ const server = {
         G_socket_removeUser(user);
       })
     );
-    const key = G_socket_randomId();
+
+    const maps = await G_getMaps();
 
     socket.emit(
       G_S_CONNECTED,
       G_socket_createMessageSocket({
         games: G_socket_getAllLobbies(),
-        maps: await G_getMaps(),
+        maps: maps.map(map => ({
+          name: map.name,
+        })),
         id: socket.id,
         key,
       })

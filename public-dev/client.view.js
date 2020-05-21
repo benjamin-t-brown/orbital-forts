@@ -7,7 +7,6 @@ G_actions
 G_getActionCost
 G_getRandomLocInCircle
 G_getSpeedCost
-G_action_planetCracker
 G_action_move
 G_res_coin
 G_res_spray
@@ -234,79 +233,6 @@ const G_view_renderSimulation = gameData => {
   //   const { x: px, y: py } = G_view_worldToPx(x, y);
   //   view_drawCircle(px, py, r * G_SCALE, 'white');
   // }
-
-  let collisions = gameData.collisions;
-  let len = collisions.length;
-  if (len) {
-    for (let i = 0; i < len; i++) {
-      const [projectile, other] = collisions[i];
-      const { x, y } = G_view_worldToPx(projectile.px, projectile.py);
-      let otherMeta = (other && other.meta) || {};
-      if (otherMeta.player === projectile.meta.player) {
-        continue;
-      }
-      if (projectile.meta.type !== G_action_move) {
-        G_view_createExplosion(x, y);
-      }
-      let ind = gameData.projectiles.indexOf(projectile);
-      if (ind > -1) {
-        gameData.projectiles.splice(ind, 1);
-      }
-      if (G_model_isResource(other)) {
-        const player = G_model_getPlayer(projectile.meta.player, gameData);
-        const parent = (G_view_getElementById('res-' + other.id) || {})
-          .parentElement;
-        if (parent) {
-          parent.remove();
-        } else {
-          continue;
-        }
-        let txt = '';
-        switch (other.type) {
-          case G_res_coin:
-            txt = '+$' + other.value;
-            break;
-          case G_res_spray:
-            txt = '+2 Spreadfire';
-            break;
-          case G_res_planetCracker:
-            txt = '+2 PlanetCracker';
-        }
-        const { x, y } = G_view_worldToPx(other.x, other.y);
-        G_view_createTextParticle(
-          x,
-          y,
-          txt,
-          G_view_getColor('light', player.color)
-        );
-      } else if (other && other.meta && other.meta.type === 'planet') {
-        if (projectile.meta.type === G_action_planetCracker) {
-          view_createLargeExplosion(other.px, other.py, G_AU, 30);
-        }
-      }
-      const hitByProjectile = other && G_model_isPlayer(other, gameData);
-      const hitAPlanet =
-        other && projectile.meta.type === G_action_move && !!other.color;
-      let pl = null;
-      if (hitByProjectile) {
-        pl = G_model_getPlayer(other.id, gameData);
-      } else if (hitAPlanet) {
-        pl = G_model_getPlayer(projectile.meta.player, gameData);
-      }
-      if (pl) {
-        pl.dead = true;
-        const { x: px, y: py } = G_view_worldToPx(pl.x, pl.y);
-        G_view_createTextParticle(
-          px,
-          py,
-          'Eliminated!',
-          G_view_getColor('light', pl.color)
-        );
-        view_createLargeExplosion(pl.x, pl.y, G_AU / 2, 12);
-      }
-    }
-  }
-  gameData.collisions = [];
 };
 
 const view_createElement = (
@@ -369,7 +295,7 @@ const G_view_createResources = res => {
   }
 };
 
-const view_createLargeExplosion = (xx, yy, r, amt) => {
+const G_view_createLargeExplosion = (xx, yy, r, amt) => {
   for (let i = 0; i < amt; i++) {
     const { x, y } = G_getRandomLocInCircle(xx, yy, r);
     const { x: px, y: py } = G_view_worldToPx(x, y);
@@ -598,16 +524,24 @@ const G_view_renderGameList = games => {
     let ind = i + 1;
     gamesList[
       view_innerHTML
-    ] += `<button style="background-color:#225;" onclick="events.join('${id}')">${ind}. Join Game: ${name}</button>`;
+    ] += `<button class="join-button" onclick="events.join('${id}')">${ind}. Join Game: ${name}</button>`;
+  }
+
+  if (!games.length) {
+    G_view_setInnerHTML(
+      gamesList,
+      '<span style="color:lightblue"> There are no joinable games at the moment.</span>'
+    );
   }
 
   G_view_setInnerHTML(
     G_view_getElementById('map-select-practice'),
-    view_renderMapSelect()
+    view_renderMapSelect({ ownerId: G_model_getUserId() }, 'menu-map-select')
   );
 };
 
-const G_view_renderLobby = players => {
+const G_view_renderLobby = lobbyData => {
+  const { players } = lobbyData;
   const playersList = G_view_getElementById('players-lobby');
   G_view_setInnerHTML(playersList, '');
   for (let i = 0; i < players.length; i++) {
@@ -620,12 +554,13 @@ const G_view_renderLobby = players => {
     }</div>`;
   }
 
-  const map = G_model_getMap();
   const isOwner = players[0].id === G_model_getUserId();
-  const canStart = players.length > 1 && players.length <= map.maxPlayers;
+  const canStart = players.length > 1 && players.length <= 4;
+  const mapSelect = G_view_getElementById('map-select');
+  mapSelect.parentElement.style.padding = isOwner ? '' : '0.5rem 0';
   G_view_setInnerHTML(
-    G_view_getElementById('map-select'),
-    view_renderMapSelect(!isOwner)
+    mapSelect,
+    view_renderMapSelect(lobbyData, 'lobby-map-select')
   );
   G_view_setInnerHTML(
     G_view_getElementById('lobby-title'),
@@ -633,7 +568,9 @@ const G_view_renderLobby = players => {
   );
   G_view_setInnerHTML(
     G_view_getElementById('player-count'),
-    `${players.length} of 4 joined (at least 2 required to start)`
+    `<a style="color:${canStart ? '#12a012' : 'red'}">${
+      players.length
+    } of 4</a> joined (at least 2 required to start)`
   );
   const start = G_view_getElementById('start');
   start.style.display = isOwner ? view_block : view_none;
@@ -645,19 +582,26 @@ const view_renderActionButton = (label, helperText, actionName, animated) => {
   let selected = G_model_getSelectedAction() === actionName;
   let style = selected ? view_getColorStyles(G_model_getColor()) : '';
   return `<div class="h-button-list">
-<button class="action" onclick="events.setAction('${actionName}')" style="${style};width:136px;margin:2px;animation:${
+<button class="action" onclick="events.setAction('${actionName}')" style="${style};width:80%;margin:2px;animation:${
     animated ? anim : ''
   }">${label}</button>
 <div>${helperText}</div>
 </div>`;
 };
 
-const view_renderMapSelect = hide => {
+const view_renderMapSelect = (lobbyData, id) => {
+  const isOwner = G_model_getUserId() === lobbyData.ownerId;
+  const currentMapIndex = isOwner ? G_model_getMapIndex() : lobbyData.mapIndex;
+  const maps = G_model_getMaps();
+  const mapName =
+    currentMapIndex > -1 && currentMapIndex < maps.length
+      ? maps[currentMapIndex].name
+      : 'Custom Map';
   const options = G_model_getMaps().reduce((prev, curr, i) => {
-    const selected = G_model_getMapIndex() === i ? 'selected' : '';
+    const selected = currentMapIndex === i ? 'selected' : '';
     return prev + `<option ${selected} value=${i}>${curr.name}</option>`;
   }, '');
-  return `<select style="display:${
-    hide ? view_none : view_block
-  }" id="lobby-map-select" class="centered" onchange="events.setMapIndex()">${options}</select>`;
+  return isOwner
+    ? `<select id="${id}" value="${currentMapIndex}" onchange="events.setMapIndex(this.id)">${options}</select>`
+    : `<span style="color:lightblue;">${mapName}</span>`;
 };

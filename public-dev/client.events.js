@@ -1,6 +1,7 @@
 /*
 global
 G_R_CREATE
+G_R_UPDATE_LOBBY
 G_R_JOIN
 G_R_LEAVE
 G_R_START
@@ -53,8 +54,9 @@ G_model_isSimulating
 
 window.events = {
   async create(isPractice) {
-    G_controller_setUserName(G_view_getElementById('player-name-input').value);
-    console.log('CREATE', G_model_getUserName());
+    G_controller_setUserName(
+      G_view_getElementById('player-name-input').value.trim() || 'Player'
+    );
     const { result, err } = await G_client_sendRequest(
       G_R_CREATE,
       `${G_model_getUserId()}/${G_model_getUserName() ||
@@ -66,9 +68,7 @@ window.events = {
       G_model_setGameName(name || 'Game Name');
       if (!isPractice) {
         G_controller_showMenu('lobby');
-        G_view_renderLobby([
-          { id: G_model_getUserId(), userName: G_model_getUserName() },
-        ]);
+        G_view_renderLobby(result.lobbyData);
       }
 
       if (isPractice) {
@@ -77,18 +77,19 @@ window.events = {
     }
   },
   async join(gameId) {
-    G_controller_setUserName(G_view_getElementById('player-name-input').value);
+    G_controller_setUserName(
+      G_view_getElementById('player-name-input').value.trim() || 'Player'
+    );
     const { result, err } = await G_client_sendRequest(
       G_R_JOIN,
-      `${G_model_getUserId()}/${gameId},${G_model_getUserName() ||
-        G_model_getUserId()}`
+      `${G_model_getUserId()}/${gameId},${G_model_getUserName()}`
     );
     if (!err) {
-      const { id, name, players } = result;
+      const { id, name, lobbyData } = result;
       G_model_setGameId(id);
       G_model_setGameName(name);
       G_controller_showMenu('lobby');
-      G_view_renderLobby(players);
+      G_view_renderLobby(lobbyData);
     } else {
       G_controller_showErrorMessage('Could not join game.');
     }
@@ -109,11 +110,13 @@ window.events = {
       `${G_model_getUserId()}/${G_model_getMapIndex()}`
     );
   },
-  async setMapIndex(i) {
-    if (i === undefined) {
-      i = G_view_getElementById('lobby-map-select').value;
-    }
+  async setMapIndex(selectId) {
+    console.log('SET MAP INDEX', selectId);
+    let i = G_view_getElementById(selectId).value;
     G_model_setMapIndex(i);
+    if (selectId === 'lobby-map-select') {
+      await window.events.updateLobby();
+    }
   },
   async confirmAction() {
     const action = G_model_getSelectedAction();
@@ -164,6 +167,7 @@ window.events = {
     G_controller_centerOnPlayer();
   },
   async returnToMenu() {
+    G_controller_setLoading(true);
     if (G_model_getGameId()) {
       await window.events.leave();
     }
@@ -173,6 +177,14 @@ window.events = {
   },
   hideDialog() {
     G_controller_showMenu(G_model_getPreviousMenu());
+  },
+  async updateLobby() {
+    const mapIndex = G_model_getMapIndex();
+    const args = [mapIndex].join(',');
+    await G_client_sendRequest(
+      G_R_UPDATE_LOBBY,
+      `${G_model_getUserId()}/${args}`
+    );
   },
 };
 

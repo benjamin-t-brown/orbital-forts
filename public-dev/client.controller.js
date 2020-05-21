@@ -1,9 +1,15 @@
 /*
 global
 G_SCALE
+G_AU
 G_PanZoom
 G_applyGravity
 G_action_shoot
+G_action_move
+G_action_planetCracker
+G_res_coin
+G_res_spray
+G_res_planetCracker
 G_client_sendRequest
 G_view_getElementById
 G_view_getNowDt
@@ -21,12 +27,16 @@ G_view_createExplosion
 G_view_loop
 G_view_createTextParticle
 G_view_setInnerHTML
+G_view_createLargeExplosion
 G_model_isGamePlaying
+G_model_isResource
+G_model_isPlayer
 G_model_getGameData
 G_model_getMe
 G_model_getUserId
 G_model_getMenuIds
 G_model_getUserName
+G_model_getPlayer
 G_model_getSelectedAction
 G_model_getSelectedSpeed
 G_model_getTargetLocation
@@ -121,7 +131,6 @@ const G_controller_beginSimulation = gameData => {
   G_view_renderGameUI(gameData);
   G_view_renderSimulation(gameData);
 
-  console.log('Begin simulation', gameData);
   G_view_loop(() => {
     let currentGameData = G_model_getGameData();
     G_applyGravity(
@@ -131,6 +140,7 @@ const G_controller_beginSimulation = gameData => {
       G_view_getNowDt()
     );
     G_view_renderSimulation(currentGameData);
+    G_controller_handleCollisions(currentGameData);
   });
 };
 
@@ -152,6 +162,7 @@ const G_controller_endSimulation = gameData => {
     }
     gameData.projectiles = [];
     G_view_renderSimulation(gameData);
+    G_controller_handleCollisions(gameData);
     const { x, y } = G_view_worldToPx(player.x, player.y);
     if (!player.dead) {
       const fundsGained = gameData.baseFundsPerRound;
@@ -172,6 +183,82 @@ const G_controller_endSimulation = gameData => {
       }, 3000);
     }
   }
+};
+
+const G_controller_handleCollisions = gameData => {
+  // console.log('HANDLE COLLISIONS', gameData, gameData.collisions);
+  let collisions = gameData.collisions;
+  let len = collisions.length;
+  if (len) {
+    for (let i = 0; i < len; i++) {
+      const [projectile, other] = collisions[i];
+      const { x, y } = G_view_worldToPx(projectile.px, projectile.py);
+      let otherMeta = (other && other.meta) || {};
+      if (otherMeta.player === projectile.meta.player) {
+        continue;
+      }
+      if (projectile.meta.type !== G_action_move) {
+        G_view_createExplosion(x, y);
+      }
+      let ind = gameData.projectiles.indexOf(projectile);
+      if (ind > -1) {
+        gameData.projectiles.splice(ind, 1);
+      }
+      if (G_model_isResource(other)) {
+        const player = G_model_getPlayer(projectile.meta.player, gameData);
+        const parent = (G_view_getElementById('res-' + other.id) || {})
+          .parentElement;
+        if (parent) {
+          parent.remove();
+        } else {
+          continue;
+        }
+        let txt = '';
+        switch (other.type) {
+          case G_res_coin:
+            txt = '+$' + other.value;
+            break;
+          case G_res_spray:
+            txt = '+2 Spreadfire';
+            break;
+          case G_res_planetCracker:
+            txt = '+2 PlanetCracker';
+        }
+        const { x, y } = G_view_worldToPx(other.x, other.y);
+        G_view_createTextParticle(
+          x,
+          y,
+          txt,
+          G_view_getColor('light', player.color)
+        );
+      } else if (other && other.meta && other.meta.type === 'planet') {
+        if (projectile.meta.type === G_action_planetCracker) {
+          G_view_createLargeExplosion(other.px, other.py, G_AU, 30);
+        }
+      }
+      const hitByProjectile = other && G_model_isPlayer(other, gameData);
+      const hitAPlanet =
+        other && projectile.meta.type === G_action_move && !!other.color;
+      let pl = null;
+      if (hitByProjectile) {
+        pl = G_model_getPlayer(other.id, gameData);
+      } else if (hitAPlanet) {
+        pl = G_model_getPlayer(projectile.meta.player, gameData);
+      }
+      if (pl) {
+        pl.dead = true;
+        const { x: px, y: py } = G_view_worldToPx(pl.x, pl.y);
+        G_view_createTextParticle(
+          px,
+          py,
+          'Eliminated!',
+          G_view_getColor('light', pl.color)
+        );
+        G_view_createLargeExplosion(pl.x, pl.y, G_AU / 2, 12);
+      }
+    }
+  }
+  gameData.collisions = [];
 };
 
 const G_controller_setLoading = v => {

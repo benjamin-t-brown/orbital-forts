@@ -31,10 +31,12 @@ button:disabled {
 }
 input {
   margin: 7px;
+  border-radius: 5px;
 }
 select {
-  max-width: 140px;
-  margin: 5px;
+  max-width: 180px;
+  margin: 0.5rem;
+  border-radius: 5px;
 }
 span {
   font-size: 12px;
@@ -70,10 +72,8 @@ span {
   font-size: 2rem;
 }
 .lobby-player {
-  border: 1px solid white;
-  padding: 0.5rem;
+  text-align: left;
   margin: 0.5rem;
-  width: 100%;
 }
 .actions-label {
   text-align: center;
@@ -281,23 +281,36 @@ span {
   padding: 10px;
 }
 
+.menu-section {
+  border: 1px solid white;
+  width: calc(100% - 2px);
+  text-align: center;
+  margin: 0.5rem;
+}
+
 .practice-menu {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  width: 270px;
-  border: 1px solid;
-  padding: 15px;
   margin-top: 8px;
 }
 
 .create-game {
-  background: #055805;
-  border: 1px solid #006400;
+  background: #097309;
+  border: 1px solid #12a012;
   padding: 15px 30px;
 }
 .create-game:hover {
-  background-color: #255815;
+  background-color: #198319;
+}
+
+.join-button {
+  background-color: #225;
+  border: 1px solid #55d;
+  width: 80%;
+}
+.join-button:hover {
+  background-color: #336;
 }
 
 @media only screen and (max-width: 420px) {

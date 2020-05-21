@@ -7,6 +7,7 @@
     "start": "yarn watch",
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "concurrently -n srv,webpack \"node src/srv\" \"webpack-dev-server --client-log-level error\"",
+    "build": "webpack",
     "export": "node export.script.js"
   },
   "author": "Benjamin Brown",

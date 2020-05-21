@@ -2,6 +2,7 @@
 global
 G_getMaps
 G_getNumMaps
+G_createEntities
 G_SCALE
 G_AU
 G_SPEEDS
@@ -9,16 +10,19 @@ G_FRAME_MS
 G_Body
 G_applyGravity
 G_actions
+G_simulate
 G_getActionCost
 G_getSpeedCost
 G_getRandomLocInCircle
+G_getNormalizedVec
+G_createProjectiles
 G_socket_sendUpdateGameList
 G_socket_createMessageSocket
 G_socket_randomId
 G_S_START
 G_S_STOP
 G_S_BROADCAST
-G_S_LOBBY_LIST_UPDATED
+G_S_LOBBY_DATA
 G_S_START_SIMULATION
 G_S_STOP_SIMULATION
 G_S_FINISHED
@@ -51,6 +55,15 @@ const G_Game = (owner, name) => {
   let initialFunds = 175;
   let baseFundsPerRound = 25;
   let mapIndex = 0;
+  let replay = {
+    version: '1.0',
+    date: +new Date(),
+    name,
+    players: [],
+    states: [],
+    initialGameData: null,
+    map: null,
+  };
   const colors = [
     'blue',
     'red',
@@ -68,8 +81,6 @@ const G_Game = (owner, name) => {
     const {
       // width,
       // height,
-      resourceLocations,
-      planetLocations,
       playerLocations,
     } = map;
     const gameObj = {
@@ -87,16 +98,15 @@ const G_Game = (owner, name) => {
       const user = usersR[i];
       const { x, y, r } = playerLocations[i];
       const loc = G_getRandomLocInCircle(x, y, r);
+      let actions = {};
+      for (let j in G_actions) {
+        actions[G_actions[j][0]] = j <= 1 ? 99 : 0;
+      }
       gameObj.players.push({
         id: G_user_getId(user),
         name: G_user_getName(user),
         funds: initialFunds,
-        actions: {
-          [G_action_shoot]: 99,
-          [G_action_move]: 99,
-          [G_action_spread]: 0,
-          [G_action_planetCracker]: 0,
-        },
+        actions,
         ready: false,
         dead: false,
         hp: 1,
@@ -106,23 +116,10 @@ const G_Game = (owner, name) => {
         target: [loc.x, loc.y],
       });
     }
-    for (let i = 0; i < planetLocations.length; i++) {
-      const p = planetLocations[i];
-      const { x, y, mass, color, r, posR } = p;
-      const loc = G_getRandomLocInCircle(x, y, posR);
-      gameObj.planets.push(
-        G_Body({ color, type: 'planet' }, mass, color, r, 0, 0, loc.x, loc.y)
-      );
-    }
-    for (let i = 0; i < resourceLocations.length; i++) {
-      const r = resourceLocations[i];
-      const { x, y, posR } = r;
-      gameObj.resources.push({
-        ...r,
-        id: G_socket_randomId(),
-        ...G_getRandomLocInCircle(x, y, posR),
-      });
-    }
+    G_createEntities(gameObj, map, {});
+
+    replay.initialGameData = gameObj;
+    replay.map = map;
 
     return gameObj;
   };
@@ -142,51 +139,14 @@ const G_Game = (owner, name) => {
       let n = +new Date();
       nowDt = n - now;
       now = n;
-      let currentGameData = gameData;
-      let { projectiles, planets, players, resources } = currentGameData;
-      let collisions = G_applyGravity(
-        projectiles,
-        projectiles.concat(planets),
-        players.filter(p => !p.dead).concat(resources),
-        nowDt
-      );
-      gameData.collisions = collisions;
-      let len = collisions.length;
-      if (len) {
-        for (let i = 0; i < len; i++) {
-          // handleCollision returns {true} when the collision should be removed
-          if (handleCollision(collisions[i])) {
-            collisions.splice(i, 1);
-            i--;
-            len--;
-          }
-        }
-      }
 
-      for (let i = 0; i < projectiles.length; i++) {
-        const p = projectiles[i];
-        if (p.meta.type === G_action_move) {
-          movePlayer(p.meta.player, p.px, p.py);
-        }
-        if (p.meta.remove) {
-          projectiles.splice(i, 1);
-          i--;
-          continue;
-        }
-        if (now - startTime >= p.t || isOutOfBounds(p.px, p.py)) {
-          collisions.push([p, null]);
-          projectiles.splice(i, 1);
-          i--;
-        }
-      }
+      G_simulate(gameData, {
+        startTime,
+        nowDt,
+        now,
+      });
 
-      for (let i = 0; i < planets.length; i++) {
-        const planet = planets[i];
-        if (planet.meta.remove) {
-          planets.splice(i, 1);
-          i--;
-        }
-      }
+      let { projectiles, collisions } = gameData;
 
       if (projectiles.length === 0) {
         stopSimulation();
@@ -203,95 +163,9 @@ const G_Game = (owner, name) => {
       stopSimulation();
     }
   };
-  const handleCollision = c => {
-    const [projectile, other] = c;
-    let player = getPlayer(projectile.meta.player, gameData);
-    const isPlayer = o => {
-      return !!(o.color && other.name);
-    };
-    const isPlanet = o => {
-      return !!o.color;
-    };
-    const isProjectile = o => {
-      return o.meta && o.meta.proj;
-    };
-    const isCoin = o => {
-      return o.type === G_res_coin;
-    };
-    const isSpray = o => {
-      return o.type === G_res_spray;
-    };
-    const isPlanetCracker = o => {
-      return o.type === G_res_planetCracker;
-    };
-
-    switch (true) {
-      // if a projectile hits a player, that player is dead
-      case isPlayer(other):
-        console.log('COL with player', projectile, other);
-        player = getPlayer(other.id, gameData);
-        player.dead = true;
-        projectile.meta.remove = true;
-        break;
-      // if a projectile hits another projectile, check mass and speed speed.  If other's mass/speed is same or less, remove other.
-      case isProjectile(other):
-        if (other.meta.player === projectile.meta.player) {
-          return true;
-        }
-        console.log('COL with other projectile', projectile, other);
-        const s1 = projectile.meta.speed * projectile.meta.mass;
-        const s2 = other.meta.speed * other.meta.mass;
-        if (s1 >= s2) {
-          console.log('This proj is faster or same as other, remove other');
-          other.meta.remove = true;
-        }
-        if (s2 >= s1) {
-          console.log('This proj is slower or same as other, remove this');
-          projectile.meta.remove = true;
-        }
-        break;
-      // if a projectile hits a coin, add that coin's funds the firing player and remove the coin
-      case isCoin(other):
-        console.log('COL with coin', projectile, other);
-        player.funds += other.value;
-        removeResource(other.id, gameData);
-        break;
-      // if a projectile hits a 'spray' power-up, add that to the players list of available actions and remove the power-up
-      case isSpray(other):
-        console.log('COL with spray', projectile, other);
-        player.actions[G_action_spread] += 2;
-        removeResource(other.id, gameData);
-        break;
-      // if a projectile hits a 'planet-cracker' power-up, add that to the players list of available actions and remove the power-up
-      case isPlanetCracker(other):
-        console.log('COL with planet cracker', projectile, other);
-        player.actions[G_action_planetCracker] += 2;
-        removeResource(other.id, gameData);
-        break;
-      // if a projectile hits a planet, it explodes.  If that projectile was a "Move", then the player is dead
-      // if the projectile is a planet cracker, then destroy the planet
-      case isPlanet(other):
-        console.log('COL with planet', projectile, other);
-        projectile.meta.remove = true;
-        const type = projectile.meta.type;
-        if (type === G_action_move) {
-          console.log('Player died by running into planet');
-          player.dead = true;
-        } else if (type === G_action_planetCracker) {
-          console.log('Player removed a planet with a planet cracker!');
-          other.meta.remove = true;
-        }
-        break;
-    }
-  };
-  const isOutOfBounds = (x, y) => {
-    const width = gameData.width + G_AU / 2;
-    const height = gameData.height + G_AU / 2;
-    return x < -width || x > width || y > height || y < -height;
-  };
 
   const startSimulation = () => {
-    console.log('START SIMULATION');
+    console.log('Start Simulation');
     startTime = now = +new Date();
     nowDt = 0;
     game.emitAll(G_S_START_SIMULATION, G_socket_createMessageSocket(gameData));
@@ -299,7 +173,7 @@ const G_Game = (owner, name) => {
     intervalId = setInterval(simulate, G_FRAME_MS);
   };
   const stopSimulation = () => {
-    console.log('STOP SIMULATION');
+    console.log('Stop Simulation');
     if (started) {
       game.emitAll(G_S_STOP_SIMULATION, G_socket_createMessageSocket(gameData));
       clearInterval(intervalId);
@@ -338,96 +212,6 @@ const G_Game = (owner, name) => {
       return pl.id === id ? pl : ret;
     }, null);
   };
-  const getResourceIndex = (id, gameData) => {
-    return gameData.resources.reduce((ret, pl, i) => {
-      return pl.id === id ? i : ret;
-    }, -1);
-  };
-  const removeResource = (id, gameData) => {
-    const ind = getResourceIndex(id, gameData);
-    if (ind > -1) {
-      gameData.resources.splice(ind, 1);
-    }
-  };
-  const movePlayer = (playerId, x, y) => {
-    const player = getPlayer(playerId, gameData);
-    if (isInBounds(x, y)) {
-      player.x = x;
-      player.y = y;
-    }
-  };
-  const isInBounds = (x, y) => {
-    const { width, height } = gameData;
-    return x >= -width && x <= width && y >= -height && y <= height;
-  };
-
-  const createProjectiles = (type, speed, normalizedVec, player) => {
-    const rotateVectorDeg = (vec, ang) => {
-      const { round, cos, sin, PI } = Math;
-      ang *= PI / 180;
-      const cosA = cos(ang);
-      const sinA = sin(ang);
-      const tenThousand = 10000;
-      return [
-        round(tenThousand * (vec[0] * cosA - vec[1] * sinA)) / tenThousand,
-        round(tenThousand * (vec[0] * sinA + vec[1] * cosA)) / tenThousand,
-      ];
-    };
-
-    const createProjectile = (vx, vy) => {
-      return G_Body(
-        {
-          proj: true,
-          type,
-          id: G_socket_randomId(),
-          player: player.id,
-          speed,
-          color: player.color,
-        },
-        mass,
-        color,
-        r,
-        vx * speed,
-        vy * speed,
-        x,
-        y,
-        len
-      );
-    };
-
-    const ret = [];
-    let mass = 1;
-    let r = 5 / G_SCALE;
-    let len = gameData.maxRoundLength;
-    let vx = normalizedVec[0];
-    let vy = normalizedVec[1];
-    const { color, x, y } = player;
-    switch (type) {
-      case G_action_spread:
-        for (let i = -5; i <= 5; i += 5) {
-          let [vx, vy] = rotateVectorDeg(normalizedVec, i);
-          ret.push(createProjectile(vx, vy));
-        }
-        break;
-      case G_action_planetCracker:
-        r = 20 / G_SCALE;
-        mass = 10;
-        ret.push(createProjectile(vx, vy));
-        break;
-      case G_action_move:
-        len = 1000;
-        r = 15 / G_SCALE;
-      default:
-        ret.push(createProjectile(vx, vy));
-    }
-
-    return ret;
-  };
-
-  const getNormalizedVec = ([x, y]) => {
-    const d = Math.sqrt(x * x + y * y);
-    return [x / d, y / d];
-  };
 
   const areAllPlayersReady = () =>
     gameData.players.reduce(
@@ -462,11 +246,10 @@ const G_Game = (owner, name) => {
     return player.funds > cost ? cost : false;
   };
 
-  const updateUsers = () => {
-    const playersList = game.getPlayers();
+  const updateLobbyData = () => {
     game.emitAll(
-      G_S_LOBBY_LIST_UPDATED,
-      G_socket_createMessageSocket(playersList)
+      G_S_LOBBY_DATA,
+      G_socket_createMessageSocket(game.getLobbyData())
     );
   };
 
@@ -480,6 +263,16 @@ const G_Game = (owner, name) => {
         userName: G_user_getName(user),
       }));
     },
+    getLobbyData: () => {
+      return {
+        mapIndex,
+        ownerId: G_user_getId(owner),
+        players: game.getPlayers(),
+      };
+    },
+    updateLobby: () => {
+      updateLobbyData();
+    },
     async join(user) {
       if (started || isPractice) {
         console.error('Cannot join');
@@ -488,7 +281,7 @@ const G_Game = (owner, name) => {
 
       if (users.length < 4) {
         users.push(user);
-        updateUsers();
+        updateLobbyData();
         return true;
       } else {
         return false;
@@ -527,7 +320,7 @@ const G_Game = (owner, name) => {
           if (i === 0) {
             game.stop();
           } else {
-            updateUsers();
+            updateLobbyData();
           }
           return true;
         }
@@ -583,15 +376,19 @@ const G_Game = (owner, name) => {
         return false;
       }
       const [targetX, targetY, speed] = args.split(',');
-      const normalizedVec = getNormalizedVec([
+      const normalizedVec = G_getNormalizedVec([
         targetX - player.x,
         targetY - player.y,
       ]);
-      const arr = createProjectiles(
-        action,
-        (G_SPEEDS[speed] && G_SPEEDS[speed][0]) || G_SPEEDS.normal[0],
-        normalizedVec,
-        player
+
+      const arr = G_createProjectiles(
+        {
+          type: action,
+          speed: (G_SPEEDS[speed] && G_SPEEDS[speed][0]) || G_SPEEDS.normal[0],
+          normalizedVec,
+          player,
+        },
+        gameData
       );
       const cost = checkActionCost(action, speed, user);
       if (cost === false) {
@@ -627,6 +424,9 @@ const G_Game = (owner, name) => {
     },
     isStarted() {
       return started;
+    },
+    getReplay() {
+      return replay;
     },
     emitAll(ev, obj) {
       users.forEach(user => {

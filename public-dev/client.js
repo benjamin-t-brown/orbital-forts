@@ -6,7 +6,7 @@ G_R_LEAVE
 G_R_START
 G_S_CONNECTED
 G_S_LIST_UPDATED
-G_S_LOBBY_LIST_UPDATED
+G_S_LOBBY_DATA
 G_S_START
 G_S_STOP
 G_S_START_SIMULATION
@@ -31,6 +31,7 @@ G_controller_showErrorMessage
 G_model_getKey
 G_model_getBroadcastHistory
 G_model_setUserId
+G_model_setKey
 G_model_setGameData
 G_model_setBroadcastHistory
 G_model_setMaps
@@ -42,10 +43,10 @@ G_view_init
 
 const G_client_sendRequest = async (type, arg, arg2) => {
   G_model_setLoading(true);
-  const headers = new Headers();
-  headers.key = G_model_getKey();
   const result = await fetch(`/${type}/${arg}${arg2 ? '/' + arg2 : ''}`, {
-    headers,
+    headers: {
+      key: G_model_getKey(),
+    },
   });
   const json = await result.json();
   if (json[1]) {
@@ -61,19 +62,20 @@ const G_client_sendRequest = async (type, arg, arg2) => {
 
   const bind = () => {
     // emitted by server on page load
-    socket.on(G_S_CONNECTED, ([{ games, maps, id }]) => {
+    socket.on(G_S_CONNECTED, ([{ games, maps, id, key }]) => {
       console.log('connected load', { games, maps, id });
       G_model_setUserId(id);
       G_model_setMaps(maps);
+      G_model_setKey(key);
       G_view_renderGameList(games);
     });
     socket.on(G_S_LIST_UPDATED, ([games]) => {
       console.log('game list updated', games);
       G_view_renderGameList(games);
     });
-    socket.on(G_S_LOBBY_LIST_UPDATED, ([games]) => {
-      console.log('lobby list updated', games);
-      G_view_renderLobby(games);
+    socket.on(G_S_LOBBY_DATA, ([lobbyData]) => {
+      console.log('lobby data updated', lobbyData);
+      G_view_renderLobby(lobbyData);
     });
     socket.on(G_S_START, ([{ startTime, gameData }]) => {
       console.log('start', startTime, gameData);

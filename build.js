@@ -105,7 +105,7 @@ const build = async () => {
   );
 
   console.log('\nExport maps to sqlite...');
-  await execAsync('npm run maps');
+  console.log(await execAsync('npm run maps'));
 
   if (useZip) {
     console.log('\nZip (command line)...');
