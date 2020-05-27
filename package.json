@@ -28,7 +28,8 @@
     "pg-hstore": "^2.3.3",
     "sequelize": "^5.21.10",
     "socket.io": "^2.2.0",
-    "sqlite3": "^4.0.9"
+    "sqlite3": "^4.0.9",
+    "terser": "^4.6.11"
   },
   "devDependencies": {
     "babel-eslint": "^10.0.1",
@@ -39,7 +40,6 @@
     "html-minifier": "^4.0.0",
     "mocha": "^7.1.2",
     "prettier": "^1.18.2",
-    "terser": "^4.6.11",
     "uglifycss": "0.0.29"
   }
 }
