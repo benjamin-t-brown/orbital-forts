@@ -1,0 +1,99 @@
+@keyframes spin {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(360deg);
+  }
+}
+.resource {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  font-size: 32px;
+  text-align: center;
+  line-height: 1.2;
+  border-radius: 30px;
+  animation: 2s linear infinite spin;
+  border: 5px solid #880;
+}
+.res2 {
+  position: absolute;
+  text-align: center;
+  pointer-events: none;
+  width: 200px;
+}
+.coin {
+  background: #cc0;
+}
+.spread {
+  background: #c0c;
+  border-color: #606;
+}
+.planet-cracker {
+  background: rgb(105, 0, 204);
+  border-color: rgb(102, 0, 88);
+}
+.cluster {
+  background: rgb(82, 0, 0);
+  border-color: rgb(128, 2, 2);
+}
+.wormhole {
+  /* border-color: rgba(100, 100, 100, 1); */
+  border-width: 0px;
+  animation: 0.5s linear infinite target-spin;
+  display: inline-block;
+  width: 60px;
+  height: 60px;
+  margin: 0;
+  border-radius: 50%;
+  position: relative;
+  /* background: radial-gradient(circle at 50% 120%, #e381f6, #ef76df 10%, rgb(75, 26, 63) 80%, #062745 100%); */
+  box-shadow: 0 0 15px 15px;
+}
+.wormhole>div {
+  animation: 0.15s linear infinite target-spin;
+  animation-direction: reverse;
+  /* background: radial-gradient(circle at 50% 0px, #f281f6, rgba(255, 255, 255, 0) 58%); */
+  margin: auto;
+  margin-top: 25%;
+  border-radius:50%;
+  width: 50%;
+  height: 50%;
+}
+/* #res:nth-of-type(1) figure>.resource {
+  border-color: red;
+}
+#res:nth-of-type(2) figure>.resource {
+  border-color: red;
+}
+#res:nth-of-type(3) figure>.resource {
+  border-color: blue;
+}
+#res:nth-of-type(4) figure>.resource {
+  border-color: blue;
+}
+#res:nth-of-type(5) figure>.resource {
+  border-color: yellow;
+}
+#res:nth-of-type(6) figure>.resource {
+  border-color: yellow;
+}
+#res:nth-of-type(7) figure>.resource {
+  border-color: lightpink;
+}
+#res:nth-of-type(8) figure>.resource {
+  border-color: lightpink;
+}
+#res:nth-of-type(9) figure>.resource {
+  border-color: orange;
+}
+#res:nth-of-type(10) figure>.resource {
+  border-color: orange;
+}
+#res:nth-of-type(11) figure>.resource {
+  border-color: green;
+}
+#res:nth-of-type(12) figure>.resource {
+  border-color: green;
+} */

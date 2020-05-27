@@ -29,6 +29,16 @@ const G_MAX_PLAYERS_PER_GAME = 4;
 
 const G_users = {};
 
+function escape(s) {
+  let lookup = {
+    '&': '&amp;',
+    '"': '&quot;',
+    '<': '&lt;',
+    '>': '&gt;',
+  };
+  return s.replace(/[&"<>]/g, c => lookup[c]);
+}
+
 const User = (socket, key) => {
   // [socket, game, userName, key]
   return [socket, '', '', key];
@@ -158,11 +168,12 @@ const G_socket_removeUser = user => {
 const server = {
   [G_R_CREATE + '/:id/:userName/:isPractice']: G_socket_wrapTryCatch(
     async (req, res) => {
-      const { id, userName, isPractice } = req.params;
+      let { id, userName, isPractice } = req.params;
       const user = G_socket_assertUser(id, req, res);
       if (!user) {
         return;
       }
+      userName = escape(userName);
       if (!userName) {
         res.send(G_socket_createMessageRest(null, 'No given userName.'));
         return;
@@ -214,7 +225,7 @@ const server = {
       return;
     }
     await game.setMapIndex(mapIndex);
-    game.updateLobby();
+    game.updateLobbyData();
     res.send(
       G_socket_createMessageRest({
         id: game.id,
@@ -227,12 +238,12 @@ const server = {
     const { id, args } = req.params;
     const i = args.indexOf(',');
     const gameId = args.slice(0, i);
-    const userName = args.slice(i + 1);
+    let userName = args.slice(i + 1);
     const user = G_socket_assertUser(id, req, res);
     if (!user) {
       return;
     }
-    console.log('JOIN', id, args);
+    userName = escape(userName || '');
     const game = G_socket_getGameById(gameId);
     if (!game) {
       console.log('no game found');

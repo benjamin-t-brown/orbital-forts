@@ -8,8 +8,10 @@ export const SPEEDS = {
 };
 
 export const RES_COIN = 'coin';
-export const RES_SPRAY = 'spray';
-export const RES_PLANET_CRACKER = 'crack';
+export const RES_SPRAY = 'spread';
+export const RES_PLANET_CRACKER = 'planet-cracker';
+export const RES_CLUSTER = 'cluster';
+export const RES_WORMHOLE = 'wormhole';
 
 export const MENU_MAP_SELECT = 'map_select';
 export const MENU_MAP = 'map';
@@ -21,16 +23,20 @@ export const SUB_MENU_RESOURCE = 'resource';
 export const SUB_MENU_MAP = 'map';
 export const SUB_MENU_CONFIRM = 'confirm';
 
-export const RES = [RES_COIN, RES_SPRAY, RES_PLANET_CRACKER];
+export const RES = [RES_COIN, RES_SPRAY, RES_PLANET_CRACKER, RES_CLUSTER];
 
 export const RES_TYPE_TO_NAME = {
   [RES_COIN]: 'Coin',
   [RES_SPRAY]: 'SpreadFire',
   [RES_PLANET_CRACKER]: 'PlanetCracker',
+  [RES_CLUSTER]: 'ClusterBomb',
+  [RES_WORMHOLE]: 'Wormhole',
 };
 
 export const RES_TYPE_TO_COLOR = {
   [RES_COIN]: '#808000',
-  [RES_SPRAY]: '#800080',
-  [RES_PLANET_CRACKER]: '#800000',
+  [RES_SPRAY]: '#8000a0',
+  [RES_PLANET_CRACKER]: '#800050',
+  [RES_CLUSTER]: '#910000',
+  [RES_WORMHOLE]: '#2050a0',
 };

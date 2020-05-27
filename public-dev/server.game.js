@@ -9,6 +9,7 @@ G_SPEEDS
 G_FRAME_MS
 G_Body
 G_applyGravity
+G_applyAction
 G_actions
 G_simulate
 G_getActionCost
@@ -23,6 +24,7 @@ G_S_START
 G_S_STOP
 G_S_BROADCAST
 G_S_LOBBY_DATA
+G_S_GAME_METADATA
 G_S_START_SIMULATION
 G_S_STOP_SIMULATION
 G_S_FINISHED
@@ -36,6 +38,12 @@ G_action_move
 G_action_shoot
 G_action_spread
 G_action_planetCracker
+G_replay_createReplay
+G_replay_saveReplay
+G_replay_addRound
+G_replay_addConfirmActionForPlayer
+G_replay_addSnapshotToRound
+G_replay_addGameDataToRound
 */
 
 const G_Game = (owner, name) => {
@@ -78,20 +86,22 @@ const G_Game = (owner, name) => {
   const createGameData = (users, map) => {
     let usersR = randomOrder(users);
 
-    const {
-      // width,
-      // height,
-      playerLocations,
-    } = map;
+    const { width, height, playerLocations } = map;
     const gameObj = {
-      ...map,
+      name,
+      mapName: map.name,
+      width,
+      height,
+      mapIndex,
       players: [],
       planets: [],
       resources: [],
       projectiles: [],
       collisions: [],
+      fields: [],
       result: false,
       baseFundsPerRound,
+      maxRoundLength: map.maxRoundLength,
     };
 
     for (let i = 0; i < usersR.length; i++) {
@@ -118,18 +128,16 @@ const G_Game = (owner, name) => {
     }
     G_createEntities(gameObj, map, {});
 
-    replay.initialGameData = gameObj;
-    replay.map = map;
-
     return gameObj;
   };
 
-  const broadcast = (i, timestamp, gameData) => {
+  const broadcast = (i, col, gameData) => {
     game.emitAll(
       G_S_BROADCAST,
       G_socket_createMessageSocket({
         i,
-        timestamp,
+        col,
+        timestamp: +new Date(),
         gameData,
       })
     );
@@ -149,14 +157,24 @@ const G_Game = (owner, name) => {
       let { projectiles, collisions } = gameData;
 
       if (projectiles.length === 0) {
+        console.log('no more projectiles');
         stopSimulation();
         return;
       }
 
       frame++;
-      if (frame >= broadcastEvery || collisions.length) {
-        frame = 0;
-        broadcast(broadcastCtr++, now, gameData);
+      const shouldFrameReset = frame >= broadcastEvery;
+      if (shouldFrameReset || collisions.length) {
+        console.log('col! broadcast', shouldFrameReset, collisions.length);
+        broadcast(
+          broadcastCtr++,
+          collisions.length > 0 && !shouldFrameReset,
+          gameData
+        );
+        G_replay_addSnapshotToRound(replay, now - startTime, gameData);
+        if (shouldFrameReset) {
+          frame = 0;
+        }
       }
     } catch (e) {
       console.error('error running simulation', e);
@@ -174,25 +192,34 @@ const G_Game = (owner, name) => {
   };
   const stopSimulation = () => {
     console.log('Stop Simulation');
-    if (started) {
-      game.emitAll(G_S_STOP_SIMULATION, G_socket_createMessageSocket(gameData));
-      clearInterval(intervalId);
-      intervalId = -1;
-      clearTimeout(timeoutId);
-      timeoutId = -1;
-      gameData.projectiles = [];
-      gameData.collisions = [];
+    try {
+      if (started) {
+        game.emitAll(
+          G_S_STOP_SIMULATION,
+          G_socket_createMessageSocket(gameData)
+        );
+        clearInterval(intervalId);
+        intervalId = -1;
+        clearTimeout(timeoutId);
+        timeoutId = -1;
+        gameData.projectiles = [];
+        gameData.collisions = [];
 
-      const result = isGameOver();
-      if (result) {
-        game.finished = true;
-        game.finish(result);
-      } else {
-        gameData.players.forEach(p => {
-          p.ready = false;
-          p.funds += baseFundsPerRound;
-        });
+        const result = isGameOver();
+        if (result) {
+          game.finished = true;
+          game.finish(result);
+        } else {
+          gameData.players.forEach(p => {
+            p.ready = false;
+            p.funds += baseFundsPerRound;
+          });
+          updateGameMetadata();
+          G_replay_addRound(replay, gameData);
+        }
       }
+    } catch (e) {
+      console.error('Error stopping game', e.stack);
     }
   };
   const randomOrder = arr => {
@@ -253,6 +280,13 @@ const G_Game = (owner, name) => {
     );
   };
 
+  const updateGameMetadata = () => {
+    game.emitAll(
+      G_S_GAME_METADATA,
+      G_socket_createMessageSocket(game.getGameMetadata())
+    );
+  };
+
   const game = {
     id: G_user_getId(owner),
     name,
@@ -270,9 +304,21 @@ const G_Game = (owner, name) => {
         players: game.getPlayers(),
       };
     },
-    updateLobby: () => {
-      updateLobbyData();
+    getGameMetadata: () => {
+      const playersNotReady = gameData.players
+        .filter(player => (player.dead ? false : !player.ready))
+        .map(player => {
+          return { playerName: player.name, color: player.color };
+        });
+
+      return {
+        playersNotReady,
+        timer: 30,
+      };
     },
+    updateLobbyData,
+    updateGameMetadata,
+
     async join(user) {
       if (started || isPractice) {
         console.error('Cannot join');
@@ -309,7 +355,7 @@ const G_Game = (owner, name) => {
                 try {
                   startSimulation();
                 } catch (e) {
-                  console.log('Error starting', e);
+                  console.error('Error starting', e.stack);
                 }
               }, 500);
             }
@@ -328,9 +374,13 @@ const G_Game = (owner, name) => {
       return false;
     },
     async start() {
+      console.log('Start game');
       started = true;
       const maps = await G_getMaps();
       gameData = createGameData(users, maps[mapIndex]);
+      gameData.isPractice = isPractice;
+      replay = G_replay_createReplay(gameData);
+      G_replay_addRound(replay, gameData);
 
       game.emitAll(
         G_S_START,
@@ -339,8 +389,11 @@ const G_Game = (owner, name) => {
           gameData,
         })
       );
+
+      updateGameMetadata();
     },
     stop() {
+      console.log('Stop game');
       stopSimulation();
       game.emitAll(
         G_S_STOP,
@@ -352,12 +405,23 @@ const G_Game = (owner, name) => {
       G_socket_sendUpdateGameList();
     },
     finish(result) {
+      console.log('Finish game', result);
       gameData.result = result;
-      game.emitAll(G_S_FINISHED, G_socket_createMessageSocket(gameData));
+      replay.result = result;
+      game.emitAll(
+        G_S_FINISHED,
+        G_socket_createMessageSocket({
+          gameData,
+          replay,
+        })
+      );
       users.forEach(user => {
         G_user_unsetGame(user);
       });
       G_socket_sendUpdateGameList();
+      if (!isPractice) {
+        G_replay_saveReplay(replay);
+      }
     },
     setPractice() {
       isPractice = true;
@@ -381,26 +445,22 @@ const G_Game = (owner, name) => {
         targetY - player.y,
       ]);
 
-      const arr = G_createProjectiles(
-        {
-          type: action,
-          speed: (G_SPEEDS[speed] && G_SPEEDS[speed][0]) || G_SPEEDS.normal[0],
-          normalizedVec,
-          player,
-        },
-        gameData
-      );
+      const speedNumber =
+        (G_SPEEDS[speed] && G_SPEEDS[speed][0]) || G_SPEEDS.normal[0];
       const cost = checkActionCost(action, speed, user);
       if (cost === false) {
         console.log('Invalid action, it costs too much.', action, speed);
         return false;
       }
-      gameData.projectiles = gameData.projectiles.concat(arr);
-      player.target = [targetX, targetY];
-      player.funds -= cost;
-      player.cost = cost;
-      player.actions[action] -= player.actions[action] < 99 ? 1 : 0;
-      player.action = action;
+      const actionObj = {
+        action,
+        speed: speedNumber,
+        vec: normalizedVec,
+        target: [targetX, targetY],
+        cost,
+      };
+      G_replay_addConfirmActionForPlayer(replay, player, actionObj);
+      G_applyAction(gameData, player, actionObj);
       player.ready = true;
       if (areAllPlayersReady()) {
         console.log('Starting after a moment...');
@@ -408,10 +468,11 @@ const G_Game = (owner, name) => {
           try {
             startSimulation();
           } catch (e) {
-            console.log('Error starting', e);
+            console.error('Error starting', e.stack);
           }
         }, 500);
       }
+      updateGameMetadata();
       return true;
     },
     canStart() {
@@ -430,7 +491,8 @@ const G_Game = (owner, name) => {
     },
     emitAll(ev, obj) {
       users.forEach(user => {
-        user[0].emit(ev, obj);
+        const [socket] = user;
+        socket.emit(ev, obj);
       });
     },
   };

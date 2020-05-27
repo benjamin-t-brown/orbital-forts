@@ -47,8 +47,8 @@ function G_PanZoom(selector, opts) {
       setTransformMatrix(newTrans);
     };
 
-    const applyScale = (dScale, x, y) => {
-      let newTrans = getTransformMatrix();
+    const applyScale = (dScale, x, y, mat) => {
+      let newTrans = mat || getTransformMatrix();
       let width = ele.width ? ele.width : ele.offsetWidth;
       let height = ele.height ? ele.height : ele.offsetHeight;
       let tranX = x - width / 2;
@@ -67,13 +67,22 @@ function G_PanZoom(selector, opts) {
     };
 
     const getDistance = (x1, y1, x2, y2) => {
-      return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+      return Math.round(Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)));
     };
 
     const getCenter = (x1, y1, x2, y2) => {
       return {
         x: Math.min(x1, x2) + Math.abs(x2 - x1) / 2,
         y: Math.min(y1, y2) + Math.abs(y2 - y1) / 2,
+      };
+    };
+
+    const getTouchCenterAndDistance = touches => {
+      const { clientX: x1, clientY: y1 } = touches[1];
+      const { clientX: x2, clientY: y2 } = touches[0];
+      return {
+        center: getCenter(x1, y1, x2, y2),
+        d: getDistance(x1, y1, x2, y2),
       };
     };
 
@@ -93,12 +102,13 @@ function G_PanZoom(selector, opts) {
       if (numTouches) {
         panning = true;
         if (numTouches >= 2) {
-          const { clientX: x1, clientY: y1 } = touches[1];
-          const { clientX: x2, clientY: y2 } = touches[0];
-          touchDist = getDistance(x1, y1, x2, y2);
           zooming = true;
           G_isPanning = true;
-          const { x, y } = getCenter(x1, y1, x2, y2);
+          const {
+            center: { x, y },
+            d,
+          } = getTouchCenterAndDistance(touches);
+          touchDist = d;
           oldX = x;
           oldY = y;
         } else {
@@ -111,10 +121,12 @@ function G_PanZoom(selector, opts) {
     ele.addEventListener('mouseup', e => {
       if (e.button === 0) {
         panning = false;
+        zooming = false;
         G_isPanning = false;
       }
     });
     ele.addEventListener('mouseleave', () => {
+      zooming = false;
       panning = false;
       G_isPanning = false;
     });
@@ -144,10 +156,10 @@ function G_PanZoom(selector, opts) {
         let deltaX = 0;
         let deltaY = 0;
         if (numTouches >= 2) {
-          const { clientX: x1, clientY: y1 } = touches[1];
-          const { clientX: x2, clientY: y2 } = touches[0];
-          const d = getDistance(x1, y1, x2, y2);
-          const { x, y } = getCenter(x1, y1, x2, y2);
+          const {
+            center: { x, y },
+            d,
+          } = getTouchCenterAndDistance(touches);
 
           deltaX = x - oldX;
           deltaY = y - oldY;
@@ -155,20 +167,27 @@ function G_PanZoom(selector, opts) {
           oldX = x;
           oldY = y;
 
-          const m = getTransformMatrix();
-          if (d > touchDist) {
-            applyScale(0.018, m.tranX, m.transY);
-          } else {
-            applyScale(-0.018, m.tranX, m.transY);
+          if (Math.abs(d - touchDist) > 2) {
+            const m = getTransformMatrix();
+            const box = ele.getBoundingClientRect();
+            let offsetX = Math.round((x - box.left) / m.scale);
+            let offsetY = Math.round((y - box.top) / m.scale);
+            if (d > touchDist) {
+              applyScale(0.042, offsetX, offsetY);
+            } else {
+              applyScale(-0.042, offsetX, offsetY);
+            }
+            touchDist = d;
           }
-          touchDist = d;
         } else {
-          const touch = e.touches[0];
-          deltaX = touch.clientX - oldX;
-          deltaY = touch.clientY - oldY;
-          applyTranslate(deltaX, deltaY);
-          oldX = touch.clientX;
-          oldY = touch.clientY;
+          if (!zooming) {
+            const touch = e.touches[0];
+            deltaX = touch.clientX - oldX;
+            deltaY = touch.clientY - oldY;
+            applyTranslate(deltaX, deltaY);
+            oldX = touch.clientX;
+            oldY = touch.clientY;
+          }
         }
       }
     });
@@ -181,19 +200,30 @@ function G_PanZoom(selector, opts) {
 
     ele.addEventListener('DOMMouseScroll', getScrollDirection, false);
     ele.addEventListener('mousewheel', getScrollDirection, false);
+
+    return {
+      translateZoom: ({ x, y, scale }) => {
+        applyScale(scale - 1, x, y, {
+          scale: 1,
+          transX: -(x - ele.offsetWidth / 2),
+          transY: -(y - ele.offsetWidth / 2),
+        });
+        oldX = x;
+        oldY = y;
+      },
+    };
   }
 
-  let panZoomElems = [];
   opts = opts || {};
   let minScale = opts.minScale ? opts.minScale : 0.1;
   let maxScale = opts.maxScale ? opts.maxScale : 1;
   let increment = opts.increment ? opts.increment : 0.2;
   let liner = opts.liner ? opts.liner : false;
-  document.querySelectorAll(selector).forEach(function(ele) {
-    panZoomElems.push(
-      new AttachPanZoom(ele, minScale, maxScale, increment, liner)
-    );
-  });
-  if (panZoomElems.length == 1) return panZoomElems[0];
-  return panZoomElems;
+  return AttachPanZoom(
+    document.getElementById(selector),
+    minScale,
+    maxScale,
+    increment,
+    liner
+  );
 }

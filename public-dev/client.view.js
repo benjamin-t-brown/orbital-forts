@@ -1,50 +1,64 @@
 /*
 global
 G_SCALE
-G_AU
-G_SPEEDS
-G_actions
-G_getActionCost
-G_getRandomLocInCircle
-G_getSpeedCost
-G_action_move
-G_res_coin
-G_res_spray
-G_res_planetCracker
-G_model_isResource
-G_model_isPlayer
-G_model_isSimulating
-G_model_isGameOver
-G_model_isLoading
-G_model_isWaitingForSimToStart
-G_model_isSelectingTarget
-G_model_isPractice
-G_model_getMe
+G_normalize
 G_model_getPlayer
-G_model_getGameName
 G_model_getColor
-G_model_getUserId
-G_model_getTargetLocation
-G_model_getSelectedSpeed
-G_model_getSelectedAction
 G_model_getTargetLocation
 G_model_getBroadcastHistory
-G_model_getMapIndex
-G_model_getMap
-G_model_getMaps
+G_view_renderSoundToggle
 */
 
 let view_nowMs;
 let view_nowDt;
 let view_started = false;
 let view_loopCb = null;
-let view_innerHTML = 'innerHTML';
-let view_none = 'none';
-let view_block = 'block';
+let G_view_innerHTML = 'innerHTML';
+let G_view_none = 'none';
+let G_view_block = 'block';
+let view_frameTime = +new Date();
+const FRAME_TIME_MAX = 9000;
 
 let PI = Math.PI;
 
-const G_view_init = () => {};
+const G_view_init = () => {
+  G_view_renderSoundToggle();
+};
+
+function view_hexToRGBA(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+
+  if (alpha !== undefined) {
+    return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+  } else {
+    return 'rgb(' + r + ', ' + g + ', ' + b + ')';
+  }
+}
+
+const view_updateGlobalFrameTime = () => {
+  const dt = view_nowMs - view_frameTime;
+  if (dt > FRAME_TIME_MAX) {
+    view_frameTime = +new Date();
+  }
+};
+
+const view_getFrameTimePercentage = () => {
+  return Math.min(
+    Math.max(
+      G_normalize(
+        view_nowMs,
+        view_frameTime,
+        view_frameTime + FRAME_TIME_MAX,
+        0,
+        1
+      ),
+      0
+    ),
+    1
+  );
+};
 
 const view_getCtx = () => {
   return G_view_getElementById('c').getContext('2d');
@@ -57,8 +71,7 @@ const G_view_setInnerHTML = (elem, html) => {
 const view_clearDisplay = () => {
   const ctx = view_getCtx();
   const canvas = ctx.canvas;
-  ctx.fillStyle = '#222';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 };
 
 const view_drawCircle = (x, y, r, color) => {
@@ -111,7 +124,30 @@ const view_getHeadingTowards = (myX, myY, x, y) => {
   return isNaN(ret) ? 0 : ret;
 };
 
-const view_getColorStyles = color =>
+const G_view_getColor = (colorPrefix, colorName) => {
+  return (
+    {
+      '': {
+        blue: '#44F',
+        yellow: '#cac200',
+      },
+      dark: {
+        blue: 'darkblue',
+        red: 'darkred',
+        green: 'darkgreen',
+        yellow: '#B8860B',
+      },
+      light: {
+        blue: 'lightblue',
+        red: '#F08080',
+        green: 'lightgreen',
+        yellow: '#FFF60B',
+      },
+    }[colorPrefix][colorName] || colorPrefix + colorName
+  );
+};
+
+const G_view_getColorStyles = color =>
   `background-color:${G_view_getColor('dark', color)};color:${G_view_getColor(
     'light',
     color
@@ -150,29 +186,6 @@ const G_view_setScreenDimensions = (width, height) => {
   c.height = height;
 };
 
-const G_view_getColor = (colorPrefix, colorName) => {
-  return (
-    {
-      '': {
-        blue: '#44F',
-        yellow: '#cac200',
-      },
-      dark: {
-        blue: 'darkblue',
-        red: 'darkred',
-        green: 'darkgreen',
-        yellow: '#B8860B',
-      },
-      light: {
-        blue: 'lightblue',
-        red: '#F08080',
-        green: 'lightgreen',
-        yellow: '#FFF60B',
-      },
-    }[colorPrefix][colorName] || colorPrefix + colorName
-  );
-};
-
 const G_view_pxToWorld = (x, y) => {
   const { width, height } = G_view_getScreenDimensions();
   return {
@@ -206,6 +219,7 @@ const G_view_renderSimulation = gameData => {
   const history = G_model_getBroadcastHistory();
 
   view_clearDisplay();
+  view_updateGlobalFrameTime();
 
   // render previous server states
   for (let i = 0; i < history.length; i++) {
@@ -223,9 +237,9 @@ const G_view_renderSimulation = gameData => {
     }
   }
 
-  G_view_drawPlayers(players);
   G_view_drawBodies(planets, gameData);
   G_view_drawBodies(projectiles, gameData);
+  G_view_drawPlayers(players);
 
   // DEBUG: Draw resource hit-circles
   // for (let i = 0; i < gameData.resources.length; i++) {
@@ -235,105 +249,21 @@ const G_view_renderSimulation = gameData => {
   // }
 };
 
-const view_createElement = (
-  parent,
-  childHtml,
-  childClassName,
-  left,
-  top,
-  id,
-  styles
-) => {
-  styles = styles || {};
-  const style = {
-    position: 'absolute',
-    left: left + 'px',
-    top: top + 'px',
-    ...styles,
-  };
-  const div = document.createElement('div');
-  div.className = childClassName;
-  if (typeof childHtml === 'string') {
-    G_view_setInnerHTML(div, childHtml);
-  } else {
-    div.appendChild(childHtml);
-  }
-  div.id = id;
-  for (let i in style) {
-    div.style[i] = style[i];
-  }
-  parent.appendChild(div);
-  return div;
-};
-
-const G_view_createResources = res => {
-  const elem = G_view_getElementById('res');
-  G_view_setInnerHTML(elem, '');
-  for (let i = 0; i < res.length; i++) {
-    const { x, y, id, type } = res[i];
-    const { x: px, y: py } = G_view_worldToPx(x, y);
-    const div = document.createElement('div');
-    const types = {
-      [G_res_planetCracker]: 'PlanetCracker',
-      [G_res_spray]: 'Spreadfire',
-      [G_res_coin]: '',
-    };
-    div.innerHTML = types[type];
-    const createdElem = view_createElement(
-      div,
-      type === G_res_coin ? '$' : '!',
-      'resource ' + type,
-      px - 100,
-      py - (type === G_res_coin ? 25 : 45),
-      'res-' + id
-    );
-    div.style.left = createdElem.style.left;
-    div.style.top = createdElem.style.top;
-    div.className = 'res2 centered';
-    createdElem.style.position = 'unset';
-    elem.appendChild(div);
-  }
-};
-
-const G_view_createLargeExplosion = (xx, yy, r, amt) => {
-  for (let i = 0; i < amt; i++) {
-    const { x, y } = G_getRandomLocInCircle(xx, yy, r);
-    const { x: px, y: py } = G_view_worldToPx(x, y);
-    setTimeout(() => {
-      G_view_createExplosion(px, py);
-    }, (i / amt) * 2000);
-  }
-};
-
-const G_view_createExplosion = (x, y) => {
-  const id = x + ',' + y;
-  if (G_view_getElementById(id)) {
+const G_view_renderStoppedSimulation = gameData => {
+  if (!gameData) {
     return;
   }
-  view_createElement(
-    G_view_getElementById('particles'),
-    '',
-    'expl',
-    x - 50,
-    y - 50,
-    id
-  );
-};
-
-const G_view_createTextParticle = (x, y, text, color) => {
-  const id = 'text,' + x + ',' + y;
-  if (G_view_getElementById(id)) {
-    return;
-  }
-  view_createElement(
-    G_view_getElementById('particles'),
-    text,
-    'text-particle',
-    x - 100,
-    y,
-    id,
-    { color }
-  );
+  const { planets, players } = gameData;
+  view_clearDisplay();
+  view_updateGlobalFrameTime();
+  G_view_drawPlayers(players);
+  G_view_drawBodies(planets, gameData);
+  // DEBUG: Draw resource hit-circles
+  // for (let i = 0; i < gameData.resources.length; i++) {
+  //   const { x, y, r } = gameData.resources[i];
+  //   const { x: px, y: py } = G_view_worldToPx(x, y);
+  //   view_drawCircle(px, py, r * G_SCALE, 'white');
+  // }
 };
 
 const G_view_drawPlayers = players => {
@@ -375,233 +305,22 @@ const G_view_drawBodies = (bodies, gameData) => {
     const { meta, px: x, py: y, r, color } = bodies[i];
     const { x: px, y: py } = G_view_worldToPx(x, y);
     const isPlanet = meta.type === 'planet';
-    let pl;
-    if (!isPlanet) {
-      pl = G_model_getPlayer(meta.player, gameData);
-      if (meta.player && meta.type === G_action_move) {
-        pl.x = x;
-        pl.y = y;
-        continue;
-      }
-    }
-    view_drawCircle(px, py, r * G_SCALE, isPlanet ? color : pl.color);
-  }
-};
-
-const G_view_renderGameUI = gameData => {
-  if (!gameData) {
-    return;
-  }
-
-  const player = G_model_getMe(gameData);
-  const isLoading = G_model_isLoading();
-  const isGameOver = G_model_isGameOver();
-  const isDead = player.dead;
-  const isWaiting = G_model_isWaitingForSimToStart();
-
-  // visibility
-  G_view_getElementById('controls').style.display =
-    G_model_isSimulating() || isWaiting || isGameOver || isDead
-      ? view_none
-      : 'flex';
-
-  G_view_getElementById('leave-game').style.display =
-    isGameOver || isDead ? view_block : view_none;
-
-  // control buttons
-  let htmlSpeeds = '';
-  Object.keys(G_SPEEDS).forEach(speedName => {
-    let [, cost] = G_SPEEDS[speedName];
-    let selected = speedName === G_model_getSelectedSpeed();
-    let style = selected ? view_getColorStyles(G_model_getColor()) : '';
-    htmlSpeeds += `<div class="action-label" style="pointer-events:${
-      isLoading ? view_none : 'all'
-    }">
-<div>Cost $${cost}</div>
-<div class="action" style="${style}" id="${speedName}" onclick="events.setSpeed('${speedName}')">${speedName}
-</div>
-</div>`;
-  });
-  G_view_setInnerHTML(G_view_getElementById('speed-buttons'), htmlSpeeds);
-  G_view_getElementById('back-practice').style.display = G_model_isPractice()
-    ? view_block
-    : view_none;
-
-  // action buttons
-  let htmlActions = '';
-  G_actions.forEach(([actionName, cost], i) => {
-    const amt = player.actions[actionName];
-    if (amt) {
-      htmlActions =
-        view_renderActionButton(
-          actionName + (amt < 99 ? ` (${amt})` : ''),
-          `$${cost}`,
-          actionName,
-          i > 1
-        ) + htmlActions;
-    }
-  });
-  G_view_setInnerHTML(G_view_getElementById('action-buttons'), htmlActions);
-
-  const totalCost =
-    G_getActionCost(G_model_getSelectedAction()) +
-    G_getSpeedCost(G_model_getSelectedSpeed());
-
-  G_view_getElementById('confirm-button').disabled = totalCost > player.funds;
-
-  // info
-  G_view_setInnerHTML(
-    G_view_getElementById('funds'),
-    `Funds: $${player.funds}`
-  );
-
-  // target
-  let target = G_view_getElementById('target');
-  const loc = G_model_getTargetLocation();
-  const { x, y } = G_view_worldToPx(loc[0], loc[1]);
-  target.style.display =
-    G_model_isSimulating() || isGameOver || isDead ? view_none : 'flex';
-  target.style.left = x - 30 + 'px';
-  target.style.top = y - 30 + 'px';
-  target.style.stroke = G_view_getColor('', G_model_getColor());
-  target.className = 'target';
-  const X = G_view_getElementById('x').cloneNode(true);
-  X.id = 'x2';
-  X.style.display = view_block;
-  G_view_setInnerHTML(target, '');
-  target.appendChild(X);
-
-  // banner
-  const bannerMessage = G_view_getElementById('banner-message');
-  const bannerMessage2 = G_view_getElementById('banner-message2');
-  if (isWaiting) {
-    G_view_setInnerHTML(bannerMessage, 'Waiting for other players...');
-  } else if (isGameOver) {
-    G_view_setInnerHTML(bannerMessage, 'The Game is Over!');
-  } else if (isDead) {
-    G_view_setInnerHTML(bannerMessage, 'You have been destroyed!');
-  } else {
-    G_view_setInnerHTML(
-      bannerMessage,
-      `You are the <span style="${view_getColorStyles(
-        player.color
-      )}border:1px solid;padding:2px;">${player.color}</span> player.`
-    );
-  }
-  if (isGameOver) {
-    const winner = G_model_getPlayer(gameData.result, gameData);
-    if (winner) {
-      G_view_setInnerHTML(
-        bannerMessage2,
-        `The Victor is <span style="${view_getColorStyles(winner.color)}">${
-          winner.name
-        }</span>!`
+    if (isPlanet) {
+      const pct = view_getFrameTimePercentage();
+      view_drawCircle(px, py, r * G_SCALE, view_hexToRGBA(color, '0.9'));
+      view_drawCircle(
+        px,
+        py,
+        r * G_SCALE * (1 - pct),
+        G_view_getColor('dark', color)
       );
     } else {
-      G_view_setInnerHTML(bannerMessage2, `The result is a DRAW!`);
+      view_drawCircle(
+        px,
+        py,
+        r * G_SCALE,
+        G_model_getPlayer(meta.player, gameData).color
+      );
     }
-  } else if (!isWaiting && !G_model_isSimulating() && !isDead) {
-    G_view_setInnerHTML(
-      bannerMessage2,
-      `<span style="color:${G_view_getColor(
-        'light',
-        player.color
-      )}">[Right Click/Dbl Tap]</span> to set Target.<br /> <span style="color:${G_view_getColor(
-        'light',
-        player.color
-      )}">[Left Click/Tap]</span> to pan.`
-    );
-  } else {
-    G_view_setInnerHTML(bannerMessage2, '');
   }
-};
-
-const G_view_renderGameList = games => {
-  const gamesList = G_view_getElementById('games');
-  G_view_setInnerHTML(gamesList, '');
-  for (let i = 0; i < games.length; i++) {
-    const { id, name } = games[i];
-    let ind = i + 1;
-    gamesList[
-      view_innerHTML
-    ] += `<button class="join-button" onclick="events.join('${id}')">${ind}. Join Game: ${name}</button>`;
-  }
-
-  if (!games.length) {
-    G_view_setInnerHTML(
-      gamesList,
-      '<span style="color:lightblue"> There are no joinable games at the moment.</span>'
-    );
-  }
-
-  G_view_setInnerHTML(
-    G_view_getElementById('map-select-practice'),
-    view_renderMapSelect({ ownerId: G_model_getUserId() }, 'menu-map-select')
-  );
-};
-
-const G_view_renderLobby = lobbyData => {
-  const { players } = lobbyData;
-  const playersList = G_view_getElementById('players-lobby');
-  G_view_setInnerHTML(playersList, '');
-  for (let i = 0; i < players.length; i++) {
-    const { id, userName } = players[i];
-    let ind = i + 1;
-    playersList[view_innerHTML] += `<div class="lobby-player">${ind}. ${
-      id === G_model_getUserId()
-        ? `<a class="lobby-name">${userName}</a>`
-        : userName
-    }</div>`;
-  }
-
-  const isOwner = players[0].id === G_model_getUserId();
-  const canStart = players.length > 1 && players.length <= 4;
-  const mapSelect = G_view_getElementById('map-select');
-  mapSelect.parentElement.style.padding = isOwner ? '' : '0.5rem 0';
-  G_view_setInnerHTML(
-    mapSelect,
-    view_renderMapSelect(lobbyData, 'lobby-map-select')
-  );
-  G_view_setInnerHTML(
-    G_view_getElementById('lobby-title'),
-    G_model_getGameName()
-  );
-  G_view_setInnerHTML(
-    G_view_getElementById('player-count'),
-    `<a style="color:${canStart ? '#12a012' : 'red'}">${
-      players.length
-    } of 4</a> joined (at least 2 required to start)`
-  );
-  const start = G_view_getElementById('start');
-  start.style.display = isOwner ? view_block : view_none;
-  start.disabled = canStart ? false : true;
-};
-
-const view_renderActionButton = (label, helperText, actionName, animated) => {
-  const anim = '2s linear infinite border-color;';
-  let selected = G_model_getSelectedAction() === actionName;
-  let style = selected ? view_getColorStyles(G_model_getColor()) : '';
-  return `<div class="h-button-list">
-<button class="action" onclick="events.setAction('${actionName}')" style="${style};width:80%;margin:2px;animation:${
-    animated ? anim : ''
-  }">${label}</button>
-<div>${helperText}</div>
-</div>`;
-};
-
-const view_renderMapSelect = (lobbyData, id) => {
-  const isOwner = G_model_getUserId() === lobbyData.ownerId;
-  const currentMapIndex = isOwner ? G_model_getMapIndex() : lobbyData.mapIndex;
-  const maps = G_model_getMaps();
-  const mapName =
-    currentMapIndex > -1 && currentMapIndex < maps.length
-      ? maps[currentMapIndex].name
-      : 'Custom Map';
-  const options = G_model_getMaps().reduce((prev, curr, i) => {
-    const selected = currentMapIndex === i ? 'selected' : '';
-    return prev + `<option ${selected} value=${i}>${curr.name}</option>`;
-  }, '');
-  return isOwner
-    ? `<select id="${id}" value="${currentMapIndex}" onchange="events.setMapIndex(this.id)">${options}</select>`
-    : `<span style="color:lightblue;">${mapName}</span>`;
 };

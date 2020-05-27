@@ -2,7 +2,7 @@ import React from 'react';
 import NoSelect from 'elements/NoSelect';
 import Button from 'elements/Button';
 import { getColorStyles } from 'theme';
-import { SCALE, AU, RES_COIN } from 'globals';
+import { SCALE, AU, RES_COIN, RES_WORMHOLE } from 'globals';
 import { SUB_MENU_RESOURCE, SUB_MENU_PLANET } from '../globals';
 
 const SUN_MASS = 5.0 * 10 ** 30;
@@ -67,6 +67,30 @@ const MenuMap = ({ app, map }) => {
           }}
         >
           + Resource
+        </Button>
+        <Button
+          disabled={app.getWormholeCount(map) >= 12}
+          onClick={() => {
+            const { x: wx, y: wy } = app.getTargetWorldLocation(map);
+            const res = {
+              type: RES_WORMHOLE,
+              value: 2,
+              r: 35 / SCALE,
+              x: wx,
+              y: wy,
+              posR: AU,
+            };
+            const res2 = {
+              ...res,
+              x: wx + AU * 3,
+            };
+            map.resourceLocations.push(res);
+            map.resourceLocations.push(res2);
+            app.setSelectedItem(res, SUB_MENU_RESOURCE);
+            app.saveMap(map);
+          }}
+        >
+          + Wormhole
         </Button>
       </div>
     </div>

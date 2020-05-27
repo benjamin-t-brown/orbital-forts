@@ -1,12 +1,27 @@
 import React from 'react';
 import NoSelect from 'elements/NoSelect';
 import { disableDrag, enableDrag } from 'panzoom';
-import { SCALE } from 'globals';
+import { SCALE, RES_WORMHOLE } from 'globals';
 import { hexToRGBA } from '../theme';
 
 const FORT_SIZE = 25 / SCALE;
 
-const MapItem = ({ app, label, color, onClick, item, map }) => {
+const wormholeColors = {
+  0: 'blue',
+  1: 'blue',
+  2: 'red',
+  3: 'red',
+  4: 'yellow',
+  5: 'yellow',
+  6: 'cyan',
+  7: 'cyan',
+  8: 'orange',
+  9: 'orange',
+  10: 'green',
+  11: 'green',
+};
+
+const MapItem = ({ app, label, color, onClick, item, wormholeCount, map }) => {
   const ref = React.createRef(null);
   const { x, y, posR: r1, r: r2 } = item;
   const { x: px, y: py } = app.worldToPx(x, y, map);
@@ -16,11 +31,16 @@ const MapItem = ({ app, label, color, onClick, item, map }) => {
   const sizeObjPlusLoc = (posR + sizeR) * 2 * SCALE;
   const sizeOfItem = sizeR * 2 * SCALE;
   const isSelected = app.getSelectedItem() === item;
+  let borderColor = undefined;
+  if (item.type === RES_WORMHOLE) {
+    borderColor = wormholeColors[wormholeCount];
+  }
   return (
     <div
       ref={ref}
       className={isSelected ? 'item-selected' : 'item-unselected'}
       style={{
+        pointerEvents: 'none',
         position: 'absolute',
         width: sizeObjPlusLoc,
         height: sizeObjPlusLoc,
@@ -39,7 +59,10 @@ const MapItem = ({ app, label, color, onClick, item, map }) => {
           ev.stopPropagation();
         }}
         style={{
-          background: hexToRGBA(color, 0.3),
+          borderColor,
+          boxSizing: 'border-box',
+          border: `5px solid ${borderColor}`,
+          background: hexToRGBA(color || 'red', 0.3),
           width: sizeObjPlusLoc,
           height: sizeObjPlusLoc,
           borderRadius: sizeObjPlusLoc,
@@ -47,6 +70,7 @@ const MapItem = ({ app, label, color, onClick, item, map }) => {
           justifyContent: 'center',
           alignItems: 'center',
           flexDirection: 'column',
+          pointerEvents: 'all',
         }}
       >
         <div

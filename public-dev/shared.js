@@ -4,12 +4,15 @@ const G_R_LEAVE = 'leave';
 const G_R_START = 'start';
 const G_R_UPDATE_LOBBY = 'update-lobby';
 const G_R_CONFIRM_ACTION = 'confirm';
+const G_R_GET_REPLAYS_LIST = 'replays';
+const G_R_GET_REPLAY = 'replay';
 
 const G_S_CONNECTED = 's-connected';
 const G_S_LIST_UPDATED = 's-game-list';
 const G_S_CREATE = 's-create';
 const G_S_START = 's-start';
 const G_S_LOBBY_DATA = 's-lobby-data';
+const G_S_GAME_METADATA = 's-game-meta';
 const G_S_LEAVE = 's-leave';
 const G_S_JOIN = 's-join';
 const G_S_STOP = 's-stop';
@@ -26,27 +29,91 @@ const G_AU = 149.6e6 * 1000; //  149.6 million km, in meters.
 const G_SCALE = 75 / G_AU;
 const G_FRAME_MS = 13.3333;
 
+// Constants for the different speeds a player can fire a projectile at associated with the cost
+// Speeds are specified in meters per 2 days (or meters per simulation step)
 let G_SPEEDS = {
   Normal: [55000, 0],
   Super: [125000, 75],
 };
 
+// Constants for each action that a player may make in a round
+// NOTE: this text is shown in the game ui in the action buttons
 const G_action_move = 'Move';
 const G_action_shoot = 'Shoot';
-const G_action_spread = 'Spreadfire';
-const G_action_planetCracker = 'Planet Crkr';
-const G_res_coin = 'coin';
-const G_res_spray = 'spray';
-const G_res_planetCracker = 'crack';
+const G_action_spread = 'Spread Fire';
+const G_action_planetCracker = 'Planet Crkr.';
+const G_action_cluster = 'Cluster Bomb';
+const G_action_clusterSpawn = 'Cluster Spawn'; // missile spawned when a cluster bomb explodes
 
+// Constants representing the resources that can be on the game board
+// NOTE: these correspond to css class names that describe what they look like on the game board
+// (css defined in entity.style.css)
+const G_res_coin = 'coin';
+const G_res_spray = 'spread';
+const G_res_planetCracker = 'planet-cracker';
+const G_res_cluster = 'cluster';
+const G_res_wormhole = 'wormhole';
+
+const G_res_sprites = {
+  [G_res_coin]: {
+    elem: 'div',
+    label: '',
+    offsetTop: 25,
+    content: '$',
+  },
+  [G_res_spray]: {
+    elem: 'div',
+    label: 'Spread Fire',
+    offsetTop: 45,
+    content: '!',
+  },
+  [G_res_planetCracker]: {
+    elem: 'div',
+    label: 'Planet Crkr.',
+    offsetTop: 45,
+    content: '!',
+  },
+  [G_res_cluster]: {
+    elem: 'div',
+    label: 'Cluster Bomb',
+    offsetTop: 45,
+    content: '!',
+  },
+  [G_res_wormhole]: {
+    elem: 'div', // wormholes use 'figure' to identify them with nth child css selector
+    label: '',
+    // offsetTop: 50,
+    offsetTop: 32,
+    content: '<div></div>', // wormholes have css that affect this div
+  },
+};
+
+// This maps all available actions with their costs
 let G_actions = [
   [G_action_move, 50],
   [G_action_shoot, 0],
   [G_action_spread, 100],
   [G_action_planetCracker, 200],
+  [G_action_cluster, 150],
 ];
 
+// entities are all "things" on the game board (used to identify objects during a collision)
+const G_entity = {
+  nothing: 'ent_nothing',
+  player: 'ent_player',
+  planet: 'ent_planet',
+  projectile: 'ent_projectile',
+  coin: 'ent_res_coin',
+  planetCracker: 'ent_res_planet_cracker',
+  spray: 'ent_res_spread',
+  cluster: 'ent_res_cluster',
+  wormhole: 'ent_res_wormhole',
+};
+
 const G_randomId = () => (+new Date() * Math.random()).toString(16);
+const G_normalize = (x, A, B, C, D) => {
+  return C + ((x - A) * (D - C)) / (B - A);
+};
 
 let G_getActionCost = actionName =>
   G_actions.reduce(
@@ -113,6 +180,56 @@ const G_createEntities = (gameData, map, { createPlanets = true } = {}) => {
   }
 };
 
+const G_getEntityType = object => {
+  const isPlayer = o => {
+    return !!(o.color && object.name);
+  };
+  const isPlanet = o => {
+    return !!o.color;
+  };
+  const isProjectile = o => {
+    return o.meta && o.meta.proj;
+  };
+  const isCoin = o => {
+    return o.type === G_res_coin;
+  };
+  const isSpray = o => {
+    return o.type === G_res_spray;
+  };
+  const isPlanetCracker = o => {
+    return o.type === G_res_planetCracker;
+  };
+  const isCluster = o => {
+    return o.type === G_res_cluster;
+  };
+  const isWormhole = o => {
+    return o.type === G_res_wormhole;
+  };
+  switch (true) {
+    case !object:
+      return G_entity.nothing;
+    case isPlayer(object):
+      return G_entity.player;
+    case isProjectile(object):
+      return G_entity.projectile;
+    case isCoin(object):
+      return G_entity.coin;
+    case isSpray(object):
+      return G_entity.spray;
+    case isPlanetCracker(object):
+      return G_entity.planetCracker;
+    case isPlanet(object):
+      return G_entity.planet;
+    case isCluster(object):
+      return G_entity.cluster;
+    case isWormhole(object):
+      return G_entity.wormhole;
+    default:
+      console.log('Unknown entity', object);
+      return G_entity.nothing;
+  }
+};
+
 const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
   const dist = (dx, dy) => Math.sqrt(dx ** 2 + dy ** 2);
   const collides = (dx, dy, r1, r2) => dist(dx, dy) <= r1 + r2;
@@ -167,8 +284,33 @@ const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
   return collisions;
 };
 
+const G_applyAction = (gameData, player, actionObj) => {
+  const {
+    action,
+    speed,
+    target: [targetX, targetY],
+    vec,
+    cost,
+  } = actionObj;
+  const arr = G_createProjectiles(
+    {
+      type: action,
+      speed,
+      normalizedVec: vec,
+      player,
+    },
+    gameData
+  );
+  gameData.projectiles = gameData.projectiles.concat(arr);
+  player.target = [targetX, targetY];
+  player.funds -= cost;
+  player.cost = cost;
+  player.actions[action] -= player.actions[action] < 99 ? 1 : 0;
+  player.action = action;
+};
+
 const G_createProjectiles = (
-  { type, speed, normalizedVec, player },
+  { type, speed, normalizedVec, player, pos },
   gameData
 ) => {
   const rotateVectorDeg = (vec, ang) => {
@@ -183,8 +325,20 @@ const G_createProjectiles = (
     ];
   };
 
+  const ret = [];
+  let mass = 1;
+  let r = 5 / G_SCALE;
+  let len = gameData.maxRoundLength;
+  let vx = normalizedVec[0];
+  let vy = normalizedVec[1];
+  let { color, x, y } = player;
+  if (pos) {
+    x = pos.x;
+    y = pos.y;
+  }
+
   const createProjectile = (vx, vy) => {
-    return G_Body(
+    let b = G_Body(
       {
         proj: true,
         type,
@@ -202,15 +356,9 @@ const G_createProjectiles = (
       y,
       len
     );
+    return b;
   };
 
-  const ret = [];
-  let mass = 1;
-  let r = 5 / G_SCALE;
-  let len = gameData.maxRoundLength;
-  let vx = normalizedVec[0];
-  let vy = normalizedVec[1];
-  const { color, x, y } = player;
   switch (type) {
     case G_action_spread:
       for (let i = -5; i <= 5; i += 5) {
@@ -223,36 +371,30 @@ const G_createProjectiles = (
       mass = 10;
       ret.push(createProjectile(vx, vy));
       break;
+    case G_action_cluster:
+      len = 2000;
+      r = 10 / G_SCALE;
+      ret.push(createProjectile(vx, vy));
+      break;
+    case G_action_clusterSpawn:
+      r = 5 / G_SCALE;
+      len = 4500;
+      for (let i = 0; i < 360; i += 10) {
+        let [vx, vy] = rotateVectorDeg(normalizedVec, i);
+        ret.push(createProjectile(vx, vy));
+        len += 50;
+      }
+      break;
     case G_action_move:
       len = 1000;
       r = 15 / G_SCALE;
     default:
       ret.push(createProjectile(vx, vy));
   }
-
   return ret;
 };
 
 const G_handleCollision = (c, gameData) => {
-  const isPlayer = o => {
-    return !!(o.color && other.name);
-  };
-  const isPlanet = o => {
-    return !!o.color;
-  };
-  const isProjectile = o => {
-    return o.meta && o.meta.proj;
-  };
-  const isCoin = o => {
-    return o.type === G_res_coin;
-  };
-  const isSpray = o => {
-    return o.type === G_res_spray;
-  };
-  const isPlanetCracker = o => {
-    return o.type === G_res_planetCracker;
-  };
-
   const getResourceIndex = (id, gameData) => {
     return gameData.resources.reduce((ret, pl, i) => {
       return pl.id === id ? i : ret;
@@ -264,26 +406,51 @@ const G_handleCollision = (c, gameData) => {
       gameData.resources.splice(ind, 1);
     }
   };
+  const createClusterSpawnFunc = (projectile, player, gameData) => {
+    return () => {
+      gameData.projectiles = [
+        ...gameData.projectiles,
+        ...G_createProjectiles(
+          {
+            type: G_action_clusterSpawn,
+            speed: G_SPEEDS.Normal[0],
+            normalizedVec: [0, 1],
+            player,
+            pos: { x: projectile.px, y: projectile.py },
+          },
+          gameData
+        ),
+      ];
+    };
+  };
 
   const [projectile, other] = c;
   let player = getPlayerByPlayerId(projectile.meta.player, gameData);
+  let type = projectile.meta.type;
 
-  switch (true) {
+  switch (G_getEntityType(other)) {
     // if a projectile hits a player, that player is dead
-    case isPlayer(other):
+    case G_entity.player:
       console.log('COL with player', projectile, other);
       player = getPlayerByPlayerId(other.id, gameData);
       player.dead = true;
       projectile.meta.remove = true;
+      if (type === G_action_cluster) {
+        return {
+          cb: createClusterSpawnFunc(projectile, player, gameData),
+        };
+      }
       break;
     // if a projectile hits another projectile, check mass and speed speed.  If other's mass/speed is same or less, remove other.
-    case isProjectile(other):
+    case G_entity.projectile:
       if (other.meta.player === projectile.meta.player) {
-        return true;
+        return {
+          remove: true,
+        };
       }
-      console.log('COL with other projectile', projectile, other);
-      const s1 = projectile.meta.speed * projectile.meta.mass;
-      const s2 = other.meta.speed * other.meta.mass;
+      const s1 = projectile.meta.speed * projectile.mass;
+      const s2 = other.meta.speed * other.mass;
+      console.log('COL with other projectile', projectile, other, s1, s2);
       if (s1 >= s2) {
         console.log('This proj is faster or same as other, remove other');
         other.meta.remove = true;
@@ -292,57 +459,97 @@ const G_handleCollision = (c, gameData) => {
         console.log('This proj is slower or same as other, remove this');
         projectile.meta.remove = true;
       }
+      if (type === G_action_cluster) {
+        return {
+          cb: createClusterSpawnFunc(projectile, player, gameData),
+        };
+      }
       break;
     // if a projectile hits a coin, add that coin's funds the firing player and remove the coin
-    case isCoin(other):
+    case G_entity.coin:
       console.log('COL with coin', projectile, other);
       player.funds += other.value;
       removeResource(other.id, gameData);
       break;
     // if a projectile hits a 'spray' power-up, add that to the players list of available actions and remove the power-up
-    case isSpray(other):
+    case G_entity.spray:
       console.log('COL with spray', projectile, other);
       player.actions[G_action_spread] += 2;
       removeResource(other.id, gameData);
       break;
     // if a projectile hits a 'planet-cracker' power-up, add that to the players list of available actions and remove the power-up
-    case isPlanetCracker(other):
+    case G_entity.planetCracker:
       console.log('COL with planet cracker', projectile, other);
       player.actions[G_action_planetCracker] += 2;
       removeResource(other.id, gameData);
       break;
+    // if a projectile hits a 'cluster' power-up, add that to the players list of available actions and remove the power-up
+    case G_entity.cluster:
+      console.log('COL with cluster', projectile, other);
+      player.actions[G_action_cluster] += 2;
+      removeResource(other.id, gameData);
+      break;
     // if a projectile hits a planet, it explodes.  If that projectile was a "Move", then the player is dead
     // if the projectile is a planet cracker, then destroy the planet
-    case isPlanet(other):
+    case G_entity.planet:
       console.log('COL with planet', projectile, other);
       projectile.meta.remove = true;
-      const type = projectile.meta.type;
       if (type === G_action_move) {
         console.log('Player died by running into planet');
         player.dead = true;
       } else if (type === G_action_planetCracker) {
         console.log('Player removed a planet with a planet cracker!');
         other.meta.remove = true;
+      } else if (type === G_action_cluster) {
+        return {
+          cb: createClusterSpawnFunc(projectile, player, gameData),
+        };
       }
       break;
+    // if a projectile hits a wormhole, move that projectile to the opposite side of the corresponding wormhole
+    // store the previous coordinate so the UI can display stuff there
+    case G_entity.wormhole:
+      console.log('COL with wormhole', projectile, other);
+      const { px: myX, py: myY, r: myR } = projectile;
+      const { x, y, r } = other;
+      const dx = x - myX;
+      const dy = y - myY;
+      const [normX, normY] = G_getNormalizedVec([dx, dy]);
+      const otherWormhole = G_getCorrespondingWormhole(other, gameData);
+      const newX = normX * (r + myR + 1) + otherWormhole.x;
+      const newY = normY * (r + myR + 1) + otherWormhole.y;
+      projectile.meta.prevX = projectile.px;
+      projectile.meta.prevY = projectile.py;
+      projectile.px = newX;
+      projectile.py = newY;
+      break;
+    case G_entity.nothing:
+      if (type === G_action_cluster) {
+        return {
+          cb: createClusterSpawnFunc(projectile, player, gameData),
+        };
+      }
   }
+  return {};
 };
 
 const G_simulate = (gameData, { now, nowDt, startTime }) => {
-  const movePlayer = (playerId, x, y) => {
-    const player = getPlayerByPlayerId(playerId, gameData);
-    if (isInBounds(x, y)) {
-      player.x = x;
-      player.y = y;
-    }
-  };
-  const isInBounds = (x, y) => {
+  const isInBounds = (x, y, gameData) => {
     const { width, height } = gameData;
     return x >= -width && x <= width && y >= -height && y <= height;
   };
 
+  const movePlayer = (playerId, x, y, gameData) => {
+    const player = getPlayerByPlayerId(playerId, gameData);
+    if (isInBounds(x, y, gameData)) {
+      player.x = x;
+      player.y = y;
+    }
+  };
+
   let currentGameData = gameData;
   let { projectiles, planets, players, resources } = currentGameData;
+  let collisionCallbacks = [];
   let collisions = G_applyGravity(
     projectiles,
     projectiles.concat(planets),
@@ -350,34 +557,53 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
     nowDt
   );
   gameData.collisions = collisions;
-  let len = collisions.length;
-  if (len) {
-    console.log('GOT A COLLISION', collisions);
-    for (let i = 0; i < len; i++) {
-      // handleCollision returns {true} when the collision should be removed
-      if (G_handleCollision(collisions[i], gameData)) {
-        console.log('remove collision');
-        collisions.splice(i, 1);
-        i--;
-        len--;
-      }
+  for (let i = 0; i < collisions.length; i++) {
+    const { remove, cb } = G_handleCollision(collisions[i], gameData);
+    if (remove) {
+      collisions.splice(i, 1);
+      i--;
+    }
+    if (cb) {
+      collisionCallbacks.push(cb);
     }
   }
 
   for (let i = 0; i < projectiles.length; i++) {
     const p = projectiles[i];
     if (p.meta.type === G_action_move) {
-      movePlayer(p.meta.player, p.px, p.py);
+      const player = getPlayerByPlayerId(p.meta.player, gameData);
+      if (player.dead) {
+        p.meta.remove = true;
+      } else {
+        movePlayer(p.meta.player, p.px, p.py, gameData);
+      }
     }
     if (p.meta.remove) {
       projectiles.splice(i, 1);
       i--;
       continue;
     }
-    if (now - startTime >= p.t || !isInBounds(p.px, p.py)) {
-      collisions.push([p, null]);
+    if (now - startTime >= p.t || !isInBounds(p.px, p.py, gameData)) {
+      const collisionWithNothing = [p, null];
+      // handleCollision returns {true} when the collision should be removed
+      console.log(
+        'Projectile timed out',
+        now - startTime >= p.t,
+        !isInBounds(p.px, p.py, gameData),
+        p.px,
+        p.py,
+        p.meta.type
+      );
+      const { remove, cb } = G_handleCollision(collisionWithNothing, gameData);
+      if (p.meta.type !== G_action_move && !remove) {
+        collisions.push(collisionWithNothing);
+      }
+      if (cb) {
+        collisionCallbacks.push(cb);
+      }
       projectiles.splice(i, 1);
       i--;
+      continue;
     }
   }
 
@@ -387,5 +613,21 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
       planets.splice(i, 1);
       i--;
     }
+  }
+
+  for (let i = 0; i < collisionCallbacks.length; i++) {
+    collisionCallbacks[i]();
+  }
+};
+
+const G_getCorrespondingWormhole = (wormhole, gameData) => {
+  const wormholes = gameData.resources.filter(
+    res => res.type === G_res_wormhole
+  );
+  const resIndex = wormholes.indexOf(wormhole);
+  if (resIndex % 2 === 0) {
+    return wormholes[resIndex + 1];
+  } else {
+    return wormholes[resIndex - 1];
   }
 };

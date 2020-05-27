@@ -9,6 +9,8 @@
     "build": "node build.js",
     "build:zip": "node build.js zip",
     "maps": "node index.dev.js maps",
+    "maps:prod": "node index.js maps",
+    "export": "node index.dev.js export",
     "start:dev": "node index.dev.js",
     "test": "mocha test"
   },

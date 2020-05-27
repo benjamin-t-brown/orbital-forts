@@ -14,6 +14,7 @@ const shared = fs.existsSync('./public-dev/shared.js')
 const terser = require('terser');
 
 const isMaps = process.argv[2] === 'maps';
+const isExport = process.argv[2] === 'export';
 
 const serverFiles = isMaps
   ? []
@@ -97,8 +98,11 @@ app
 
 storage
   .init(app.get('storage'))
-  .then(() => {
-    if (isMaps) {
+  .then(async () => {
+    if (isExport) {
+      const replays = await storage.interface.get('replays');
+      fs.writeFileSync('replays.json', JSON.stringify(replays, null, 2));
+    } else if (isMaps) {
       console.log('Transferring maps to db...');
       const MAPS_DIR = 'map-maker/saved-maps';
       fs.readdir(MAPS_DIR, async (err, files) => {

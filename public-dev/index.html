@@ -6,7 +6,9 @@
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, minimal-ui"
     />
     <link rel="stylesheet" type="text/css" href="/style.css" />
-    <link rel="icon" href="favicon.ico">
+    <link rel="stylesheet" type="text/css" href="/entity.style.css" />
+    <link rel="stylesheet" type="text/css" href="/effects.style.css" />
+    <link rel="icon" href="favicon.ico" />
   </head>
   <body>
     <svg
@@ -32,7 +34,7 @@
     </svg>
     <div id="main" class="centered">
       <div id="game" class="hidden">
-        <div id="cc" style="position:relative;">
+        <div id="cc">
           <canvas id="c"></canvas>
           <div class="game-elems" id="res"></div>
           <div class="game-elems" id="players"></div>
@@ -46,7 +48,8 @@
           <div class="banner-message" id="banner-message2"></div>
           <div class="banner-message" id="banner-message3"></div>
         </div>
-        <button id="leave-game" onclick="events.returnToMenu()">Leave</button>
+        <button id="view-last-replay" class="post-game-button" onclick="events.viewLastReplay()">View Replay</button>
+        <button id="leave-game" class="post-game-button" onclick="events.returnToMenu()">Leave</button>
         <div id="controls" class="game-ui" style="bottom:0px">
           <button id="confirm-button" onclick="events.confirmAction()">Confirm!</button>
           <div id="action-buttons"></div>
@@ -77,7 +80,8 @@
           <span>Player Name:</span>
           <input id="player-name-input" maxlength="10"></input>
         </span>
-        <button onclick="events.create()" class="create-game">Create Game</button>
+        <button onclick="events.create()" class="main-menu-button create-game">Create Game</button>
+        <button id="view-last-replay2" onclick="events.viewLastReplay()" class="main-menu-button">View Last Replay</button>
         <span class="menu-section" style="padding: 0.5rem 0;">Join Game</span>
         <div id="games" class="centered"></div>
         <span class="practice-menu menu-section">
@@ -88,16 +92,21 @@
       </div>
       <div id="dialog" class="centered hidden menu">
         <div id="dialog-text"></div>
-        <button onclick="events.hideDialog()">OK</button>
+        <button onclick="events.hideDialog()" style="width: 80px">OK</button>
       </div>
     </div>
+    <img id="sound" src="sound.svg" alt="sound" onclick="events.toggleSound()"></img>
   </body>
   <footer>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/shared.js"></script>
     <script src="/client.lib.panzoom.js"></script>
+    <script src="/client.lib.zzfx.js"></script>
     <script src="/client.model.js"></script>
     <script src="/client.view.js"></script>
+    <script src="/client.view.elements.js"></script>
+    <script src="/client.view.components.js"></script>
+    <script src="/client.view.sound.js"></script>
     <script src="/client.controller.js"></script>
     <script src="/client.events.js"></script>
     <script src="/client.js"></script>

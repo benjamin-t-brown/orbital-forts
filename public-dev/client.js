@@ -7,6 +7,7 @@ G_R_START
 G_S_CONNECTED
 G_S_LIST_UPDATED
 G_S_LOBBY_DATA
+G_S_GAME_METADATA
 G_S_START
 G_S_STOP
 G_S_START_SIMULATION
@@ -30,15 +31,20 @@ G_controller_init
 G_controller_showErrorMessage
 G_model_getKey
 G_model_getBroadcastHistory
+G_model_getGameData
 G_model_setUserId
 G_model_setKey
 G_model_setGameData
+G_model_setGameMetadata
 G_model_setBroadcastHistory
 G_model_setMaps
 G_model_setLoading
+G_model_setLastReplay
 G_view_renderGameList
 G_view_renderLobby
+G_view_renderGameBanners
 G_view_init
+G_view_playSound
 */
 
 const G_client_sendRequest = async (type, arg, arg2) => {
@@ -50,7 +56,7 @@ const G_client_sendRequest = async (type, arg, arg2) => {
   });
   const json = await result.json();
   if (json[1]) {
-    console.error('[FETCH-ERROR]', json[1]);
+    throw new Error('[FETCH-ERROR] ' + json[1]);
   }
   G_model_setLoading(false);
   console.log('fetch', type, arg, json);
@@ -77,9 +83,17 @@ const G_client_sendRequest = async (type, arg, arg2) => {
       console.log('lobby data updated', lobbyData);
       G_view_renderLobby(lobbyData);
     });
+    socket.on(G_S_GAME_METADATA, ([gameMetadata]) => {
+      console.log('game metadata updated', gameMetadata);
+      G_model_setGameMetadata(gameMetadata);
+      G_view_renderGameBanners(G_model_getGameData(), gameMetadata);
+    });
     socket.on(G_S_START, ([{ startTime, gameData }]) => {
       console.log('start', startTime, gameData);
       G_controller_startGame(gameData);
+      if (!gameData.isPractice) {
+        G_view_playSound('start');
+      }
     });
     socket.on(G_S_STOP, ([message]) => {
       console.log('stop', message);
@@ -93,21 +107,24 @@ const G_client_sendRequest = async (type, arg, arg2) => {
       G_controller_beginSimulation(gameData);
     });
     socket.on(G_S_STOP_SIMULATION, ([gameData]) => {
-      console.log('stop simulation');
+      console.log('stop simulation', gameData);
       G_model_setBroadcastHistory([]);
       G_controller_endSimulation(gameData);
     });
-    socket.on(G_S_BROADCAST, ([{ gameData }]) => {
+    socket.on(G_S_BROADCAST, ([{ gameData, col }]) => {
       G_model_setGameData(gameData);
       const history = G_model_getBroadcastHistory();
-      history.push(gameData);
-      if (history.length > 500) {
-        history.shift();
+      if (!col) {
+        history.push(gameData);
+        if (history.length > 500) {
+          history.shift();
+        }
       }
     });
-    socket.on(G_S_FINISHED, ([gameData]) => {
-      console.log('game over', gameData);
+    socket.on(G_S_FINISHED, ([{ gameData, replay }]) => {
+      console.log('game over', gameData, replay);
       G_controller_finishGame(gameData);
+      G_model_setLastReplay(replay);
     });
 
     socket.on('connect', () => {

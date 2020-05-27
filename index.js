@@ -13,6 +13,9 @@ const shared = fs.existsSync('./public/shared.js')
   ? fs.readFileSync('./public/shared.js', 'utf8')
   : '';
 const storage = require('./lib/storage');
+const terser = require('terser');
+
+const isMaps = process.argv[2] === 'maps';
 
 let packageSize = 0;
 
@@ -79,6 +82,45 @@ app
 storage
   .init(app.get('storage'))
   .then(() => {
+    if (isMaps) {
+      console.log('Transferring production maps to db...');
+      const MAPS_DIR = 'map-maker/saved-maps';
+      fs.readdir(MAPS_DIR, async (err, files) => {
+        if (err) {
+          console.error(err);
+        } else {
+          console.log('Reading files from ', MAPS_DIR);
+          const maps = files
+            .filter(
+              fileName =>
+                fileName.indexOf('.json') > -1 &&
+                fileName.indexOf('Dev Test Map') === -1
+            )
+            .sort()
+            .map(fileName => {
+              console.log('-', fileName);
+              return JSON.parse(
+                fs.readFileSync(MAPS_DIR + '/' + fileName).toString()
+              );
+            });
+          console.log('Storing in db...');
+          const { code } = eval(terser.minify('a=' + JSON.stringify(maps)));
+          const obj = eval(code.slice(2));
+          await storage.interface.set('maps', obj);
+          const mSize = await storage.interface.size();
+          const mapsStorage = await storage.interface.get('maps');
+          console.log(
+            'Done!',
+            mSize + 'b,',
+            mapsStorage.length,
+            'maps',
+            maps.length
+          );
+        }
+      });
+      return;
+    }
+
     const sandbox = createSandbox();
     require('vm').runInNewContext(shared + '\n' + code, sandbox);
     if (typeof sandbox.module.exports == 'function') {

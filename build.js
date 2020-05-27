@@ -19,13 +19,16 @@ async function createZip() {
   });
 }
 
-const CLIENT_FILES = fs
-  .readdirSync('./public-dev')
+const publicDevDir = fs.readdirSync('./public-dev');
+
+const CLIENT_FILES = publicDevDir
   .filter(fileName => fileName.includes('client.'))
   .sort((a, b) => (a.length < b.length ? -1 : 1));
-const SERVER_FILES = fs
-  .readdirSync('./public-dev')
+const SERVER_FILES = publicDevDir
   .filter(fileName => fileName.includes('server.'))
+  .sort((a, b) => (a.length < b.length ? -1 : 1));
+const CSS_FILES = publicDevDir
+  .filter(fileName => fileName.includes('style.css'))
   .sort((a, b) => (a.length < b.length ? -1 : 1));
 
 const execAsync = async command => {
@@ -54,39 +57,74 @@ const build = async () => {
       return prev + '\n' + fs.readFileSync('public-dev/' + curr).toString();
     }, '(() => {\n') + '\n})()';
   const sharedFile = fs.readFileSync('public-dev/shared.js').toString();
-  const htmlFile = fs
+  const cssFileConcat = CSS_FILES.reduce((prev, curr) => {
+    return prev + '\n' + fs.readFileSync('public-dev/' + curr).toString();
+  }, '');
+  let htmlFile = fs
     .readFileSync('public-dev/index.html')
     .toString()
-    .replace(/\n/g, '')
+    .replace(/<link rel="stylesheet" type="text\/css" href="(.*)" \/>/g, '')
     .replace(
-      /<footer>(.*)/,
-      `<footer><script src="/socket.io/socket.io.js"></script>
+      /<\/head>/,
+      '<link rel="stylesheet" type="text/css" href="/style.css" /></head>'
+    )
+    .replace(/<script src="(.*)"><\/script>/g, '')
+    .replace(
+      '</footer>',
+      `<script src="/socket.io/socket.io.js"></script>
     <script src="/shared.js"></script>
-    <script src="/client.js"></script>`
+    <script src="/client.js"></script>
+    </footer>`
     );
 
-  await execAsync(
-    'rm -rf .build public.zip public/*.js public/*.css public/*.wav'
-  );
-
+  await execAsync('rm -rf .build public.zip public/*.js public/*.css');
   await execAsync('mkdir -p .build');
 
   console.log('\nWrite tmp files...');
   fs.writeFileSync('./.build/client.tmp.js', clientFileConcat);
   fs.writeFileSync('./.build/server.tmp.js', serverFileConcat);
   fs.writeFileSync('./.build/shared.tmp.js', sharedFile);
+  fs.writeFileSync('./.build/style.tmp.css', cssFileConcat);
+  fs.writeFileSync('./.build/index.tmp.html', htmlFile);
+
+  const terserArgs = [
+    'passes=3',
+    'pure_getters',
+    'unsafe',
+    'unsafe_math',
+    'hoist_funs',
+    'toplevel',
+    // 'drop_console',
+    'pure_funcs=[console.info,console.log,console.debug,console.warn]',
+    'ecma=9',
+  ];
+  const terserArgsShared = [
+    'passes=3',
+    'pure_getters',
+    'unsafe',
+    'unsafe_math',
+    // 'drop_console',
+    'pure_funcs=[console.info,console.log,console.debug,console.warn]',
+    'ecma=9',
+  ];
 
   console.log('\nMinify code...');
   await execAsync(
-    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,drop_console,ecma=9 --mangle -o public/client.js -- .build/client.tmp.js'
+    `node_modules/.bin/terser --compress ${terserArgs.join(
+      ','
+    )} --mangle -o public/client.js -- .build/client.tmp.js`
   );
   await execAsync(
-    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,hoist_funs,toplevel,drop_console,ecma=9 --mangle -o public/server.js -- .build/server.tmp.js'
+    `node_modules/.bin/terser --compress ${terserArgs.join(
+      ','
+    )} --mangle -o public/server.js -- .build/server.tmp.js`
   );
   await execAsync(
-    'node_modules/.bin/terser --compress passes=3,pure_getters,unsafe,unsafe_math,ecma=9 --mangle -o public/shared.js -- .build/shared.tmp.js'
+    `node_modules/.bin/terser --compress ${terserArgsShared.join(
+      ','
+    )} --mangle -o public/shared.js -- .build/shared.tmp.js`
   );
-  await execAsync('uglifycss --output public/style.css public-dev/style.css');
+  await execAsync('uglifycss --output public/style.css .build/style.tmp.css');
   console.log('minify html: public/index.html');
   fs.writeFileSync(
     'public/index.html',
@@ -105,7 +143,7 @@ const build = async () => {
   );
 
   console.log('\nExport maps to sqlite...');
-  console.log(await execAsync('npm run maps'));
+  console.log(await execAsync('npm run maps:prod'));
 
   if (useZip) {
     console.log('\nZip (command line)...');

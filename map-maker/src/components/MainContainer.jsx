@@ -20,6 +20,7 @@ import {
   SUB_MENU_PLAYER_SPAWN,
   SUB_MENU_RESOURCE,
   SUB_MENU_CONFIRM,
+  RES_WORMHOLE,
 } from 'globals';
 
 export const LOCAL_STORAGE_KEY = 'orbital-forts-map-maker-map';
@@ -149,6 +150,7 @@ export default ({ defaultMapName }) => {
             return;
           }
         }
+        console.warn('nothing removed', item);
       } else {
         console.warn('no map to remove from');
       }
@@ -207,6 +209,11 @@ export default ({ defaultMapName }) => {
       const x = parseInt(target.style.left) + 25;
       const y = parseInt(target.style.top) + 25;
       return app.pxToWorld(x, y, map);
+    },
+    getWormholeCount: map => {
+      return map.resourceLocations.reduce((prev, curr) => {
+        return prev + (curr.type === RES_WORMHOLE ? 1 : 0);
+      }, 0);
     },
   };
 

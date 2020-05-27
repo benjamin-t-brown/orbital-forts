@@ -2,6 +2,7 @@ import React from 'react';
 import PanZoom from 'panzoom';
 import {
   SCALE,
+  RES_WORMHOLE,
   RES_TYPE_TO_NAME,
   RES_TYPE_TO_COLOR,
   SUB_MENU_RESOURCE,
@@ -65,6 +66,8 @@ const MapArea = ({ app, map }) => {
   } = map;
   const { x: targetX, y: targetY } = app.getTargetLoc();
 
+  let wormholeCount = 0;
+
   return (
     <div
       style={{
@@ -104,7 +107,23 @@ const MapArea = ({ app, map }) => {
           boxSizing: 'border-box',
         }}
       >
+        {planetLocations.map((planetLoc, i) => {
+          return (
+            <MapItem
+              key={'planetLoc' + i}
+              label={'Planet'}
+              color={planetLoc.color}
+              app={app}
+              item={planetLoc}
+              map={map}
+              onClick={handlePlanetLocClick}
+            />
+          );
+        })}
         {resourceLocations.map((res, i) => {
+          if (res.type === RES_WORMHOLE) {
+            wormholeCount++;
+          }
           return (
             <MapItem
               key={'res' + i}
@@ -113,6 +132,7 @@ const MapArea = ({ app, map }) => {
               app={app}
               item={res}
               map={map}
+              wormholeCount={wormholeCount - 1}
               onClick={handleResourceClick}
             />
           );
@@ -127,19 +147,6 @@ const MapArea = ({ app, map }) => {
               item={playerLoc}
               map={map}
               onClick={handlePlayerLocClick}
-            />
-          );
-        })}
-        {planetLocations.map((planetLoc, i) => {
-          return (
-            <MapItem
-              key={'planetLoc' + i}
-              label={'Planet'}
-              color={planetLoc.color}
-              app={app}
-              item={planetLoc}
-              map={map}
-              onClick={handlePlanetLocClick}
             />
           );
         })}
