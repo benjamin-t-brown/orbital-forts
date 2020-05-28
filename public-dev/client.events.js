@@ -21,6 +21,10 @@ G_controller_showErrorMessage
 G_controller_setTarget
 G_controller_startReplay
 G_controller_replayNextRound
+G_controller_replayStopSimulatingRound
+G_controller_endReplay
+G_controller_endSimulation
+G_controller_stopGame
 G_view_getElementById
 G_view_renderLobby
 G_view_renderGameUI
@@ -59,6 +63,7 @@ G_model_isWaitingForSimToStart
 G_model_isSimulating
 G_model_isGameOver
 G_model_setSoundEnabled
+G_model_isReplayingGame
 */
 
 window.events = {
@@ -111,12 +116,10 @@ window.events = {
   },
   async leave() {
     G_view_playSound('button');
-    if (!G_model_isGameOver() || G_model_getLobbyId()) {
-      try {
-        await G_client_sendRequest(G_R_LEAVE, `${G_model_getUserId()}`);
-      } catch (e) {
-        console.warn('error leaving game', e);
-      }
+    try {
+      await G_client_sendRequest(G_R_LEAVE, `${G_model_getUserId()}`);
+    } catch (e) {
+      console.warn('error leaving game', e);
     }
     G_model_setGameId(null);
     G_model_setLobbyId(null);
@@ -178,7 +181,8 @@ window.events = {
     if (
       G_model_isGamePlaying() &&
       !G_model_isWaitingForSimToStart() &&
-      !G_model_isSimulating()
+      !G_model_isSimulating() &&
+      !G_model_isReplayingGame()
     ) {
       G_controller_setTarget(ev);
     }
@@ -189,9 +193,14 @@ window.events = {
   async returnToMenu() {
     G_view_playSound('button');
     G_controller_setLoading(true);
-    if (G_model_getGameId()) {
-      await window.events.leave();
+    if (G_model_isReplayingGame()) {
+      G_controller_replayStopSimulatingRound();
+      G_controller_endReplay();
+    } else {
+      G_controller_endSimulation();
+      G_controller_stopGame();
     }
+    await window.events.leave();
     G_model_setGameData(null);
     G_model_setGameId(null);
     G_controller_showMenu('menu');

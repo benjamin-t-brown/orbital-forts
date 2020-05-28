@@ -61,17 +61,12 @@ const G_Game = (owner, name) => {
   let frame = 0;
   let FORT_SIZE = 25 / G_SCALE;
   let initialFunds = 175;
-  let baseFundsPerRound = 25;
+  let baseFundsPerRound = 5;
   let mapIndex = 0;
-  let replay = {
-    version: '1.0',
-    date: +new Date(),
-    name,
-    players: [],
-    states: [],
-    initialGameData: null,
-    map: null,
-  };
+  // let roundNumber = 0;
+  // let itemRespawnRate = 15;
+  let replay = null;
+  let map = null;
   const colors = [
     'blue',
     'red',
@@ -83,9 +78,9 @@ const G_Game = (owner, name) => {
     // 'orange',
   ];
 
-  const createGameData = (users, map) => {
+  const createGameData = (users, selectedMap) => {
     let usersR = randomOrder(users);
-
+    map = selectedMap;
     const { width, height, playerLocations } = map;
     const gameObj = {
       name,
@@ -93,6 +88,7 @@ const G_Game = (owner, name) => {
       width,
       height,
       mapIndex,
+      previousCollisions: [],
       players: [],
       planets: [],
       resources: [],
@@ -165,7 +161,6 @@ const G_Game = (owner, name) => {
       frame++;
       const shouldFrameReset = frame >= broadcastEvery;
       if (shouldFrameReset || collisions.length) {
-        console.log('col! broadcast', shouldFrameReset, collisions.length);
         broadcast(
           broadcastCtr++,
           collisions.length > 0 && !shouldFrameReset,
@@ -175,6 +170,11 @@ const G_Game = (owner, name) => {
         if (shouldFrameReset) {
           frame = 0;
         }
+      }
+      if (collisions.length) {
+        gameData.previousCollisions = gameData.collisions.concat(
+          gameData.previousCollisions
+        );
       }
     } catch (e) {
       console.error('error running simulation', e);
@@ -216,6 +216,7 @@ const G_Game = (owner, name) => {
           });
           updateGameMetadata();
           G_replay_addRound(replay, gameData);
+          // roundNumber++;
         }
       }
     } catch (e) {
@@ -439,6 +440,10 @@ const G_Game = (owner, name) => {
         console.error('No player exists in game or player is dead.', user);
         return false;
       }
+      if (player.ready) {
+        console.error('Player has already confirmed an action.', user);
+        return false;
+      }
       const [targetX, targetY, speed] = args.split(',');
       const normalizedVec = G_getNormalizedVec([
         targetX - player.x,
@@ -449,7 +454,7 @@ const G_Game = (owner, name) => {
         (G_SPEEDS[speed] && G_SPEEDS[speed][0]) || G_SPEEDS.normal[0];
       const cost = checkActionCost(action, speed, user);
       if (cost === false) {
-        console.log('Invalid action, it costs too much.', action, speed);
+        console.log('Action costs too much.', action, speed);
         return false;
       }
       const actionObj = {

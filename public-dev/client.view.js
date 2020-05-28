@@ -1,6 +1,9 @@
 /*
 global
 G_SCALE
+G_DEBUG
+G_MASS_MIN
+G_MASS_MAX
 G_normalize
 G_model_getPlayer
 G_model_getColor
@@ -221,6 +224,8 @@ const G_view_renderSimulation = gameData => {
   view_clearDisplay();
   view_updateGlobalFrameTime();
 
+  G_view_drawPlanets(planets);
+
   // render previous server states
   for (let i = 0; i < history.length; i++) {
     const { projectiles } = history[i];
@@ -237,16 +242,17 @@ const G_view_renderSimulation = gameData => {
     }
   }
 
-  G_view_drawBodies(planets, gameData);
-  G_view_drawBodies(projectiles, gameData);
+  G_view_drawProjectiles(projectiles, gameData);
   G_view_drawPlayers(players);
 
   // DEBUG: Draw resource hit-circles
-  // for (let i = 0; i < gameData.resources.length; i++) {
-  //   const { x, y, r } = gameData.resources[i];
-  //   const { x: px, y: py } = G_view_worldToPx(x, y);
-  //   view_drawCircle(px, py, r * G_SCALE, 'white');
-  // }
+  if (G_DEBUG) {
+    for (let i = 0; i < gameData.resources.length; i++) {
+      const { x, y, r } = gameData.resources[i];
+      const { x: px, y: py } = G_view_worldToPx(x, y);
+      view_drawCircle(px, py, r * G_SCALE, 'white');
+    }
+  }
 };
 
 const G_view_renderStoppedSimulation = gameData => {
@@ -257,13 +263,15 @@ const G_view_renderStoppedSimulation = gameData => {
   view_clearDisplay();
   view_updateGlobalFrameTime();
   G_view_drawPlayers(players);
-  G_view_drawBodies(planets, gameData);
+  G_view_drawPlanets(planets);
   // DEBUG: Draw resource hit-circles
-  // for (let i = 0; i < gameData.resources.length; i++) {
-  //   const { x, y, r } = gameData.resources[i];
-  //   const { x: px, y: py } = G_view_worldToPx(x, y);
-  //   view_drawCircle(px, py, r * G_SCALE, 'white');
-  // }
+  if (G_DEBUG) {
+    for (let i = 0; i < gameData.resources.length; i++) {
+      const { x, y, r } = gameData.resources[i];
+      const { x: px, y: py } = G_view_worldToPx(x, y);
+      view_drawCircle(px, py, r * G_SCALE, 'white');
+    }
+  }
 };
 
 const G_view_drawPlayers = players => {
@@ -300,27 +308,55 @@ const G_view_drawPlayers = players => {
   }
 };
 
-const G_view_drawBodies = (bodies, gameData) => {
+const G_view_drawPlanets = bodies => {
+  const G_R_MIN = 120 / G_SCALE;
+  const G_R_MAX = 840 / G_SCALE;
   for (let i = 0; i < bodies.length; i++) {
-    const { meta, px: x, py: y, r, color } = bodies[i];
+    const { px: x, py: y, mass } = bodies[i];
     const { x: px, y: py } = G_view_worldToPx(x, y);
-    const isPlanet = meta.type === 'planet';
-    if (isPlanet) {
-      const pct = view_getFrameTimePercentage();
-      view_drawCircle(px, py, r * G_SCALE, view_hexToRGBA(color, '0.9'));
-      view_drawCircle(
-        px,
-        py,
-        r * G_SCALE * (1 - pct),
-        G_view_getColor('dark', color)
-      );
-    } else {
-      view_drawCircle(
-        px,
-        py,
-        r * G_SCALE,
-        G_model_getPlayer(meta.player, gameData).color
-      );
-    }
+    const massGradientR = G_normalize(
+      mass,
+      G_MASS_MIN,
+      G_MASS_MAX,
+      G_R_MIN,
+      G_R_MAX
+    );
+    const ctx = view_getCtx();
+    const grd = ctx.createRadialGradient(
+      px,
+      py,
+      20,
+      px,
+      py,
+      massGradientR * G_SCALE
+    );
+    grd.addColorStop(0, '#0f0f0f');
+    grd.addColorStop(1, 'transparent');
+    view_drawCircle(px, py, 800, grd);
+  }
+  for (let i = 0; i < bodies.length; i++) {
+    const { px: x, py: y, r, color } = bodies[i];
+    const { x: px, y: py } = G_view_worldToPx(x, y);
+    const pct = view_getFrameTimePercentage();
+    view_drawCircle(px, py, r * G_SCALE, view_hexToRGBA(color, '0.9'));
+    view_drawCircle(
+      px,
+      py,
+      r * G_SCALE * (1 - pct),
+      G_view_getColor('dark', color)
+    );
+  }
+};
+
+const G_view_drawProjectiles = (bodies, gameData) => {
+  for (let i = 0; i < bodies.length; i++) {
+    const { meta, px: x, py: y, r } = bodies[i];
+    const { x: px, y: py } = G_view_worldToPx(x, y);
+    view_drawCircle(
+      px,
+      py,
+      r * G_SCALE,
+      G_model_getPlayer(meta.player, gameData).color
+    );
   }
 };

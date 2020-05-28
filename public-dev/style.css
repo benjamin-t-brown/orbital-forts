@@ -260,6 +260,13 @@ span {
   transform: translateY(1px);
 }
 
+#action-buttons {
+  overflow-y: auto;
+  pointer-events: all;
+  text-align: center;
+  width: 200px;
+}
+
 @media only screen and (max-width: 420px) {
   #main {
     max-width: 320px;
@@ -274,6 +281,9 @@ span {
   }
   .banner-message {
     font-size: 13px;
+  }
+  #action-buttons {
+    max-height: 200px;
   }
   body {
     font-size: 12px;

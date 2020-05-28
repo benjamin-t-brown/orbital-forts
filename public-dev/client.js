@@ -111,14 +111,12 @@ const G_client_sendRequest = async (type, arg, arg2) => {
       G_model_setBroadcastHistory([]);
       G_controller_endSimulation(gameData);
     });
-    socket.on(G_S_BROADCAST, ([{ gameData, col }]) => {
+    socket.on(G_S_BROADCAST, ([{ gameData }]) => {
       G_model_setGameData(gameData);
       const history = G_model_getBroadcastHistory();
-      if (!col) {
-        history.push(gameData);
-        if (history.length > 500) {
-          history.shift();
-        }
+      history.push(gameData);
+      if (history.length > 500) {
+        history.shift();
       }
     });
     socket.on(G_S_FINISHED, ([{ gameData, replay }]) => {

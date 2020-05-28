@@ -94,7 +94,7 @@ storage
             .filter(
               fileName =>
                 fileName.indexOf('.json') > -1 &&
-                fileName.indexOf('Dev Test Map') === -1
+                fileName.indexOf('.dev') === -1
             )
             .sort()
             .map(fileName => {

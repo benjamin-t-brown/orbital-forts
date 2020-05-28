@@ -21,13 +21,17 @@ const G_S_START_SIMULATION = 's-simulate-start';
 const G_S_STOP_SIMULATION = 's-simulate-stop';
 const G_S_FINISHED = 's-finished';
 
+let G_DEBUG = false;
+
 // Gravitational constant
 const G_G = 6.67428e-11;
 
 // Assumed scale: 100 pixels = 1AU.
 const G_AU = 149.6e6 * 1000; //  149.6 million km, in meters.
 const G_SCALE = 75 / G_AU;
-const G_FRAME_MS = 13.3333;
+const G_FRAME_MS = 13.333;
+const G_MASS_MIN = 5.0 * 10 ** 30;
+const G_MASS_MAX = 100.0 * 10 ** 30;
 
 // Constants for the different speeds a player can fire a projectile at associated with the cost
 // Speeds are specified in meters per 2 days (or meters per simulation step)
@@ -80,7 +84,7 @@ const G_res_sprites = {
     content: '!',
   },
   [G_res_wormhole]: {
-    elem: 'div', // wormholes use 'figure' to identify them with nth child css selector
+    elem: 'div',
     label: '',
     // offsetTop: 50,
     offsetTop: 32,
@@ -93,8 +97,8 @@ let G_actions = [
   [G_action_move, 50],
   [G_action_shoot, 0],
   [G_action_spread, 100],
-  [G_action_planetCracker, 200],
-  [G_action_cluster, 150],
+  [G_action_planetCracker, 150],
+  [G_action_cluster, 200],
 ];
 
 // entities are all "things" on the game board (used to identify objects during a collision)
@@ -114,6 +118,8 @@ const G_randomId = () => (+new Date() * Math.random()).toString(16);
 const G_normalize = (x, A, B, C, D) => {
   return C + ((x - A) * (D - C)) / (B - A);
 };
+const G_dist = (dx, dy) => Math.sqrt(dx ** 2 + dy ** 2);
+const G_collidesCir = (dx, dy, r1, r2) => G_dist(dx, dy) <= r1 + r2;
 
 let G_getActionCost = actionName =>
   G_actions.reduce(
@@ -158,20 +164,76 @@ const G_Body = (meta, mass, color, r, vx, vy, px, py, t) => {
 };
 
 const G_createEntities = (gameData, map, { createPlanets = true } = {}) => {
+  const collidesWithOther = (self, other) => {
+    let { px: sx, py: sy, x: sxx, y: syy, r: sr } = self;
+    let { px: ox, py: oy, x: oxx, y: oyy, r: or } = other;
+
+    let selfX = sxx || sx;
+    let selfY = syy || sy;
+    let otherX = oxx || ox;
+    let otherY = oyy || oy;
+    let dx = otherX - selfX;
+    let dy = otherY - selfY;
+    return G_collidesCir(dx, dy, sr, or);
+  };
+
+  const collidesWithAnything = (self, arr) => {
+    for (let i = 0; i < arr.length; i++) {
+      const other = arr[i];
+      if (collidesWithOther(self, other)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const { planetLocations, resourceLocations } = map;
   if (createPlanets) {
     for (let i = 0; i < planetLocations.length; i++) {
       const p = planetLocations[i];
       const { x, y, mass, color, r, posR } = p;
-      const loc = G_getRandomLocInCircle(x, y, posR);
-      gameData.planets.push(
-        G_Body({ color, type: 'planet' }, mass, color, r, 0, 0, loc.x, loc.y)
-      );
+      let ctr = 0;
+      let newPlanet;
+      do {
+        const loc = G_getRandomLocInCircle(x, y, posR);
+        newPlanet = G_Body(
+          { color, type: 'planet' },
+          mass,
+          color,
+          r,
+          0,
+          0,
+          loc.x,
+          loc.y
+        );
+        ctr++;
+      } while (ctr <= 10 && collidesWithAnything(newPlanet, gameData.planets));
+      if (ctr <= 10) {
+        gameData.planets.push(newPlanet);
+      }
     }
   }
   for (let i = 0; i < resourceLocations.length; i++) {
     const r = resourceLocations[i];
     const { x, y, posR } = r;
+
+    let ctr = 0;
+    let newResource;
+    do {
+      newResource = {
+        ...r,
+        id: G_randomId(),
+        ...G_getRandomLocInCircle(x, y, posR),
+      };
+      ctr++;
+    } while (
+      ctr <= 10 &&
+      collidesWithAnything(
+        newResource,
+        gameData.planets.concat(gameData.resources)
+      )
+    );
+
     gameData.resources.push({
       ...r,
       id: G_randomId(),
@@ -231,15 +293,13 @@ const G_getEntityType = object => {
 };
 
 const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
-  const dist = (dx, dy) => Math.sqrt(dx ** 2 + dy ** 2);
-  const collides = (dx, dy, r1, r2) => dist(dx, dy) <= r1 + r2;
   const getAttraction = (self, other) => {
     let { px: sx, py: sy, mass: sMass, r: sr } = self;
     let { px: ox, py: oy, mass: oMass, r: or } = other;
     let dx = ox - sx;
     let dy = oy - sy;
-    let d = Math.max(dist(dx, dy), 0.001);
-    let c = collides(dx, dy, sr, or);
+    let d = Math.max(G_dist(dx, dy), 0.001);
+    let c = G_collidesCir(dx, dy, sr, or);
     let f = (G_G * sMass * oMass) / d ** 2;
     let theta = Math.atan2(dy, dx);
     let fx = Math.cos(theta) * f;
@@ -270,7 +330,7 @@ const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
     for (let j = 0; j < extraColliders.length; j++) {
       let other = extraColliders[j];
       let { x, y, r } = other;
-      let c = collides(x - body.px, y - body.py, r, body.r);
+      let c = G_collidesCir(x - body.px, y - body.py, r, body.r);
       if (c && body.meta.player !== other.id) {
         collisions.push([body, other]);
       }
@@ -377,7 +437,7 @@ const G_createProjectiles = (
       ret.push(createProjectile(vx, vy));
       break;
     case G_action_clusterSpawn:
-      r = 5 / G_SCALE;
+      r = 4 / G_SCALE;
       len = 4500;
       for (let i = 0; i < 360; i += 10) {
         let [vx, vy] = rotateVectorDeg(normalizedVec, i);
@@ -534,14 +594,19 @@ const G_handleCollision = (c, gameData) => {
 };
 
 const G_simulate = (gameData, { now, nowDt, startTime }) => {
-  const isInBounds = (x, y, gameData) => {
-    const { width, height } = gameData;
-    return x >= -width && x <= width && y >= -height && y <= height;
+  const isInBounds = (x, y, width, height, gameData) => {
+    const { width: worldWidth, height: worldHeight } = gameData;
+    return (
+      x - width >= -worldWidth &&
+      x + width <= worldWidth &&
+      y - height >= -worldHeight &&
+      y + height <= worldHeight
+    );
   };
 
   const movePlayer = (playerId, x, y, gameData) => {
     const player = getPlayerByPlayerId(playerId, gameData);
-    if (isInBounds(x, y, gameData)) {
+    if (isInBounds(x, y, player.r, player.r, gameData)) {
       player.x = x;
       player.y = y;
     }
@@ -583,13 +648,13 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
       i--;
       continue;
     }
-    if (now - startTime >= p.t || !isInBounds(p.px, p.py, gameData)) {
+    if (now - startTime >= p.t || !isInBounds(p.px, p.py, p.r, p.r, gameData)) {
       const collisionWithNothing = [p, null];
       // handleCollision returns {true} when the collision should be removed
       console.log(
         'Projectile timed out',
         now - startTime >= p.t,
-        !isInBounds(p.px, p.py, gameData),
+        !isInBounds(p.px, p.py, p.r, p.r, gameData),
         p.px,
         p.py,
         p.meta.type

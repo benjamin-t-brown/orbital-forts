@@ -2,6 +2,7 @@
 global
 G_SCALE
 G_AU
+G_FRAME_MS
 G_PanZoom
 G_applyGravity
 G_applyAction
@@ -34,6 +35,7 @@ G_view_createTextParticle
 G_view_setInnerHTML
 G_view_createLargeExplosion
 G_view_createWormholeParticle
+G_view_createResource
 G_view_renderReplayUI
 G_view_playSound
 G_model_getLocalStorageKey
@@ -80,6 +82,8 @@ G_model_isReplayingGame
 */
 
 let G_panZoomObj = {};
+let controller_replay_intervalId = -1;
+let controller_game_intervalId = -1;
 
 const G_controller_init = () => {
   let ms = G_view_getElementById('main').style;
@@ -123,24 +127,53 @@ const G_controller_setupGame = gameData => {
     playersDiv.appendChild(div);
   }
 
-  G_model_setTargetLocation([p.x, p.y + 100]);
-  G_controller_centerOnPlayer();
-
   G_model_setWaitingForSimToStart(false);
   G_model_setSimulating(false);
   G_model_setGameOver(false);
 
-  G_view_getElementById('particles').innerHTML = '';
   G_view_createResources(gameData.resources);
   G_view_loop(() => {
     G_view_renderStoppedSimulation(gameData);
   });
 };
 
+const G_controller_applyGameDataToUI = gameData => {
+  const { resources } = gameData;
+
+  // add resources that were mistakenly removed
+  for (let i = 0; i < resources; i++) {
+    const res = resources[i];
+    const elem = G_view_getElementById('res-' + res.id);
+    if (!elem) {
+      G_view_createResource(res);
+    }
+  }
+
+  // remove resources that were not correctly removed
+  [...G_view_getElementById('res').children]
+    .map(child => {
+      const children = child.children;
+      return {
+        resourceId: children[children.length - 1].id.slice('res-'.length),
+        child,
+      };
+    })
+    .forEach(({ resourceId, child }) => {
+      const r = resources.find(r => r.id === resourceId);
+      if (!r) {
+        child.remove();
+      }
+    });
+};
+
 const G_controller_startGame = gameData => {
   G_model_setGamePlaying(true);
   G_model_setIsReplayingGame(false);
   G_controller_setupGame(gameData);
+  const p = G_model_getMe(gameData);
+  G_view_getElementById('particles').innerHTML = '';
+  G_model_setTargetLocation([p.x, p.y + 100]);
+  G_controller_centerOnPlayer();
   G_view_renderGameUI(gameData);
 };
 
@@ -177,12 +210,17 @@ const G_controller_beginSimulation = gameData => {
 };
 
 const G_controller_endSimulation = gameData => {
+  clearInterval(controller_game_intervalId);
   G_view_loop(() => {
+    const gameData = G_model_getGameData();
     G_view_renderStoppedSimulation(gameData);
   });
   G_model_setSimulating(false);
+  G_model_setSelectedSpeed('Normal');
+  G_model_setSelectedAction(G_action_shoot);
   if (gameData) {
     G_model_setGameData(gameData);
+    G_controller_applyGameDataToUI(gameData);
     const player = G_model_getMe(gameData);
     const amt = player.actions[G_model_getSelectedAction()];
     if (!amt) {
@@ -193,6 +231,7 @@ const G_controller_endSimulation = gameData => {
       const projectile = gameData.projectiles[i];
       const { x, y, meta } = G_view_worldToPx(projectile.px, projectile.py);
       G_view_createExplosion(x, y, meta && meta.type === 'Move' ? 'mv' : 'sm');
+      G_view_playSound('expl');
     }
     gameData.projectiles = [];
     G_view_renderSimulation(gameData);
@@ -337,7 +376,8 @@ const G_controller_handleCollisions = gameData => {
           G_view_createWormholeParticle(prevX, prevY);
           break;
         }
-        case G_entity.nothing: {
+        case G_entity.nothing:
+        default: {
           G_view_playSound('expl');
           G_view_createExplosion(x, y);
         }
@@ -414,7 +454,6 @@ const G_controller_finishGame = gameData => {
         G_view_playSound('lose');
       }
     } else {
-      console.log('play tie');
       G_view_playSound('tie');
     }
 
@@ -484,6 +523,9 @@ const G_controller_startReplay = replay => {
   G_model_setReplay(replay);
   G_view_renderReplayUI(replay, initialGameData);
   G_controller_setupGame(initialGameData);
+  const p = G_model_getMe(initialGameData);
+  G_model_setTargetLocation([p.x, p.y + 100]);
+  G_controller_centerOnPlayer();
 };
 
 const G_controller_endReplay = () => {
@@ -532,7 +574,7 @@ const G_controller_replayStartSimulatingRound = (round, replay) => {
   let broadcastEvery = 10;
   let snapshotIndex = 0;
 
-  G_view_loop(() => {
+  controller_replay_intervalId = setInterval(() => {
     let currentGameData = G_model_getGameData();
     let n = +new Date();
     nowDt = n - now;
@@ -543,6 +585,7 @@ const G_controller_replayStartSimulatingRound = (round, replay) => {
       nowDt,
       now,
     });
+    G_model_setGameData(currentGameData);
 
     let timeSinceStart = now - startTime;
     let snapshot;
@@ -561,7 +604,7 @@ const G_controller_replayStartSimulatingRound = (round, replay) => {
         currentGameData.collisions = snapshot.snapshot.collisions;
       }
     }
-    let { projectiles, collisions } = currentGameData;
+    let { collisions } = currentGameData;
 
     frame++;
     if (frame >= broadcastEvery || collisions.length) {
@@ -573,10 +616,16 @@ const G_controller_replayStartSimulatingRound = (round, replay) => {
         history.shift();
       }
     }
+  }, G_FRAME_MS);
+
+  G_view_loop(() => {
+    let currentGameData = G_model_getGameData();
+
     G_view_renderSimulation(currentGameData);
     G_controller_handleCollisions(currentGameData);
     G_controller_updatePlayerPositions(currentGameData);
-    G_model_setGameData(currentGameData);
+
+    let { projectiles } = currentGameData;
 
     if (projectiles.length === 0) {
       console.log('no more projectiles');
@@ -588,6 +637,7 @@ const G_controller_replayStartSimulatingRound = (round, replay) => {
 const G_controller_replayStopSimulatingRound = () => {
   const replay = G_model_getReplay();
   const gameData = G_model_getGameData();
+  clearInterval(controller_replay_intervalId);
   G_view_loop(() => {
     const gameData = G_model_getGameData();
     G_view_renderStoppedSimulation(gameData);
@@ -610,10 +660,12 @@ const G_controller_replayStopSimulatingRound = () => {
     } else {
       const round = replay.rounds[roundIndex];
       if (round.partialGameData) {
-        G_model_setGameData({
+        const nextRoundGameData = {
           ...gameData,
           ...round.partialGameData,
-        });
+        };
+        G_model_setGameData(nextRoundGameData);
+        G_controller_applyGameDataToUI(nextRoundGameData);
       }
     }
   }

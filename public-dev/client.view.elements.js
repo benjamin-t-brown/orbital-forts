@@ -9,6 +9,22 @@ G_view_setInnerHTML
 G_view_getElementById
 */
 
+const view_wormholeColors = {
+  0: '#00f',
+  1: '#00f',
+  2: 'red',
+  3: 'red',
+  4: 'yellow',
+  5: 'yellow',
+  6: 'cyan',
+  7: 'cyan',
+  8: 'orange',
+  9: 'orange',
+  10: 'green',
+  11: 'green',
+};
+let view_wormholeCount = 0;
+
 const view_createElement = (
   parent,
   childHtml,
@@ -40,60 +56,51 @@ const view_createElement = (
   return div;
 };
 
+const G_view_createResource = res => {
+  const element = G_view_getElementById('res');
+  const { x, y, id, type } = res;
+  let { label, content, offsetTop, elem } = G_res_sprites[type] || {};
+  const isWormhole = type === G_res_wormhole;
+  let borderColor = '';
+  let backgroundColor = '';
+  const { x: px, y: py } = G_view_worldToPx(x, y);
+  const parent = document.createElement(elem);
+  parent.innerHTML = label || '';
+  const resourceElem = view_createElement(
+    parent,
+    content || '',
+    'resource ' + type,
+    px - 100,
+    py - offsetTop,
+    'res-' + id
+  );
+  if (isWormhole) {
+    const c = view_wormholeColors[view_wormholeCount];
+    borderColor = c;
+    backgroundColor = `radial-gradient(circle at 50% 120%, ${c}, ${c} 10%, rgb(75, 26, 63) 80%, #062745 100%)`;
+    resourceElem.children[0].style.background = `radial-gradient(circle at 50% 0px, ${c}, rgba(255, 255, 255, 0) 58%)`;
+    view_wormholeCount++;
+  }
+  if (borderColor) {
+    resourceElem.style.color = borderColor;
+  }
+  if (backgroundColor) {
+    resourceElem.style.background = backgroundColor;
+  }
+  parent.style.left = resourceElem.style.left;
+  parent.style.top = resourceElem.style.top;
+  parent.className = 'res2 centered';
+  resourceElem.style.position = 'unset';
+  element.appendChild(parent);
+};
+
 const G_view_createResources = res => {
   const element = G_view_getElementById('res');
   G_view_setInnerHTML(element, '');
-  const wormholeColors = {
-    0: '#00f',
-    1: '#00f',
-    2: 'red',
-    3: 'red',
-    4: 'yellow',
-    5: 'yellow',
-    6: 'cyan',
-    7: 'cyan',
-    8: 'orange',
-    9: 'orange',
-    10: 'green',
-    11: 'green',
-  };
 
-  let wormholeCount = 0;
+  view_wormholeCount = 0;
   for (let i = 0; i < res.length; i++) {
-    const { x, y, id, type } = res[i];
-    let { label, content, offsetTop, elem } = G_res_sprites[type] || {};
-    const isWormhole = type === G_res_wormhole;
-    let borderColor = '';
-    let backgroundColor = '';
-    const { x: px, y: py } = G_view_worldToPx(x, y);
-    const parent = document.createElement(elem);
-    parent.innerHTML = label || '';
-    const resourceElem = view_createElement(
-      parent,
-      content || '',
-      'resource ' + type,
-      px - 100,
-      py - offsetTop,
-      'res-' + id
-    );
-    if (isWormhole) {
-      const c = wormholeColors[wormholeCount];
-      borderColor = c;
-      backgroundColor = `radial-gradient(circle at 50% 120%, ${c}, ${c} 10%, rgb(75, 26, 63) 80%, #062745 100%)`;
-      resourceElem.children[0].style.background = `radial-gradient(circle at 50% 0px, ${c}, rgba(255, 255, 255, 0) 58%)`;
-      wormholeCount++;
-    }
-    if (borderColor) {
-      resourceElem.style.color = borderColor;
-    }
-    if (backgroundColor) {
-      resourceElem.style.background = backgroundColor;
-    }
-    parent.style.left = resourceElem.style.left;
-    parent.style.top = resourceElem.style.top;
-    parent.className = 'res2 centered';
-    resourceElem.style.position = 'unset';
-    element.appendChild(parent);
+    G_view_createResource(res[i]);
   }
 };
 

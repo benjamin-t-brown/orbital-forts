@@ -68,7 +68,7 @@ const G_view_renderGameUI = gameData => {
       isLoading ? G_view_none : 'all'
     }">
 <div>Cost $${cost}</div>
-<div class="action" style="${style}" id="${speedName}" onclick="events.setSpeed('${speedName}')">${speedName}
+<div class="action" style="${style}" id="${speedName}" onclick="events.setSpeed('${speedName}')" onmousedown="events.setSpeed('${speedName}')">${speedName}
 </div>
 </div>`;
   });
@@ -270,7 +270,8 @@ const view_renderActionButton = (label, helperText, actionName, animated) => {
   let selected = G_model_getSelectedAction() === actionName;
   let style = selected ? G_view_getColorStyles(G_model_getColor()) : '';
   return `<div class="h-button-list">
-<button class="action" onclick="events.setAction('${actionName}')" style="${style};width:80%;margin:2px;animation:${
+<button class="action" onclick="events.setAction('${actionName}')" onmousedown="events.setAction('${actionName}')"
+style="${style};width:80%;margin:2px;animation:${
     animated ? anim : ''
   }">${label}</button>
 <div>${helperText}</div>
