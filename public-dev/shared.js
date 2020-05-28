@@ -492,8 +492,8 @@ const G_handleCollision = (c, gameData) => {
     // if a projectile hits a player, that player is dead
     case G_entity.player:
       console.log('COL with player', projectile, other);
-      player = getPlayerByPlayerId(other.id, gameData);
-      player.dead = true;
+      const player2 = getPlayerByPlayerId(other.id, gameData);
+      player2.dead = true;
       projectile.meta.remove = true;
       if (type === G_action_cluster) {
         return {
