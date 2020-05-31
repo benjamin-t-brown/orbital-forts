@@ -1,6 +1,7 @@
 import React from 'react';
 import NoSelect from 'elements/NoSelect';
 import Button from 'elements/Button';
+import Checkbox from 'elements/Checkbox';
 import { getColorStyles } from 'theme';
 import { SCALE, AU, RES_COIN, RES_WORMHOLE } from 'globals';
 import { SUB_MENU_RESOURCE, SUB_MENU_PLANET } from '../globals';
@@ -31,6 +32,13 @@ const MenuMap = ({ app, map }) => {
           flexDirection: 'column',
         }}
       >
+        <Checkbox
+          label="Snap To Grid"
+          value={app.snapToGrid}
+          onChange={ev => {
+            app.setSnapToGrid(!app.snapToGrid);
+          }}
+        ></Checkbox>
         <Button
           onClick={() => {
             const { x: wx, y: wy } = app.getTargetWorldLocation(map);

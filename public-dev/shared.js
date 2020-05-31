@@ -21,6 +21,8 @@ const G_S_START_SIMULATION = 's-simulate-start';
 const G_S_STOP_SIMULATION = 's-simulate-stop';
 const G_S_FINISHED = 's-finished';
 
+const G_GAME_TIME_BUFFER_MS = 250;
+
 let G_DEBUG = false;
 
 // Gravitational constant
@@ -37,7 +39,7 @@ const G_MASS_MAX = 100.0 * 10 ** 30;
 // Speeds are specified in meters per 2 days (or meters per simulation step)
 let G_SPEEDS = {
   Normal: [55000, 0],
-  Super: [125000, 75],
+  Super: [125000, 50],
 };
 
 // Constants for each action that a player may make in a round
@@ -48,6 +50,7 @@ const G_action_spread = 'Spread Fire';
 const G_action_planetCracker = 'Planet Crkr.';
 const G_action_cluster = 'Cluster Bomb';
 const G_action_clusterSpawn = 'Cluster Spawn'; // missile spawned when a cluster bomb explodes
+const G_action_spread5 = 'Spread Fire 5';
 
 // Constants representing the resources that can be on the game board
 // NOTE: these correspond to css class names that describe what they look like on the game board
@@ -142,15 +145,23 @@ const G_getNormalizedVec = ([x, y]) => {
   return [x / d, y / d];
 };
 
-const getPlayerByPlayerId = (playerId, gameData) => {
-  const id = playerId;
-  return gameData.players.reduce((ret, pl) => {
-    return pl.id === id ? pl : ret;
-  }, null);
+const G_getEntityFromEntMap = (entityId, gameData) => {
+  const entity = gameData.entMap[entityId];
+  return entity;
+};
+
+const G_forEachEntityType = (cb, entityType, gameData) => {
+  for (let i in gameData.entMap) {
+    const entity = gameData.entMap[i];
+    if (G_getEntityType(entity) === entityType) {
+      cb(entity, i);
+    }
+  }
 };
 
 const G_Body = (meta, mass, color, r, vx, vy, px, py, t) => {
   return {
+    id: G_randomId(),
     meta,
     mass,
     color,
@@ -164,7 +175,8 @@ const G_Body = (meta, mass, color, r, vx, vy, px, py, t) => {
 };
 
 const G_createEntities = (gameData, map, { createPlanets = true } = {}) => {
-  const collidesWithOther = (self, other) => {
+  const collidesWithOther = (self, otherId) => {
+    const other = G_getEntityFromEntMap(otherId, gameData);
     let { px: sx, py: sy, x: sxx, y: syy, r: sr } = self;
     let { px: ox, py: oy, x: oxx, y: oyy, r: or } = other;
 
@@ -209,7 +221,9 @@ const G_createEntities = (gameData, map, { createPlanets = true } = {}) => {
         ctr++;
       } while (ctr <= 10 && collidesWithAnything(newPlanet, gameData.planets));
       if (ctr <= 10) {
-        gameData.planets.push(newPlanet);
+        const id = newPlanet.id;
+        gameData.planets.push(id);
+        gameData.entMap[id] = newPlanet;
       }
     }
   }
@@ -222,7 +236,6 @@ const G_createEntities = (gameData, map, { createPlanets = true } = {}) => {
     do {
       newResource = {
         ...r,
-        id: G_randomId(),
         ...G_getRandomLocInCircle(x, y, posR),
       };
       ctr++;
@@ -233,12 +246,12 @@ const G_createEntities = (gameData, map, { createPlanets = true } = {}) => {
         gameData.planets.concat(gameData.resources)
       )
     );
-
-    gameData.resources.push({
-      ...r,
-      id: G_randomId(),
-      ...G_getRandomLocInCircle(x, y, posR),
-    });
+    if (ctr <= 10) {
+      const id = G_randomId();
+      newResource.id = id;
+      gameData.resources.push(id);
+      gameData.entMap[id] = newResource;
+    }
   }
 };
 
@@ -292,6 +305,10 @@ const G_getEntityType = object => {
   }
 };
 
+const G_createCollision = (self, other) => {
+  return [self.id, (other && other.id) || 0, false, G_randomId()];
+};
+
 const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
   const getAttraction = (self, other) => {
     let { px: sx, py: sy, mass: sMass, r: sr } = self;
@@ -319,8 +336,9 @@ const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
         continue;
       }
       let { fx, fy, c } = getAttraction(body, other);
-      if (c) {
-        collisions.push([body, other]);
+      if (c && other.meta.color !== body.meta.color) {
+        const col = G_createCollision(body, other);
+        collisions.push(col);
         continue;
       }
       totalFx += fx;
@@ -332,7 +350,8 @@ const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
       let { x, y, r } = other;
       let c = G_collidesCir(x - body.px, y - body.py, r, body.r);
       if (c && body.meta.player !== other.id) {
-        collisions.push([body, other]);
+        const col = G_createCollision(body, other);
+        collisions.push(col);
       }
     }
 
@@ -361,7 +380,11 @@ const G_applyAction = (gameData, player, actionObj) => {
     },
     gameData
   );
-  gameData.projectiles = gameData.projectiles.concat(arr);
+
+  arr.forEach(p => {
+    gameData.projectiles.push(p.id);
+    gameData.entMap[p.id] = p;
+  });
   player.target = [targetX, targetY];
   player.funds -= cost;
   player.cost = cost;
@@ -402,7 +425,6 @@ const G_createProjectiles = (
       {
         proj: true,
         type,
-        id: G_randomId(),
         player: player.id,
         speed,
         color: player.color,
@@ -439,10 +461,10 @@ const G_createProjectiles = (
     case G_action_clusterSpawn:
       r = 4 / G_SCALE;
       len = 4500;
-      for (let i = 0; i < 360; i += 10) {
+      for (let i = 0; i < 360; i += 20) {
         let [vx, vy] = rotateVectorDeg(normalizedVec, i);
         ret.push(createProjectile(vx, vy));
-        len += 50;
+        len += 75;
       }
       break;
     case G_action_move:
@@ -455,44 +477,50 @@ const G_createProjectiles = (
 };
 
 const G_handleCollision = (c, gameData) => {
-  const getResourceIndex = (id, gameData) => {
-    return gameData.resources.reduce((ret, pl, i) => {
-      return pl.id === id ? i : ret;
-    }, -1);
-  };
   const removeResource = (id, gameData) => {
-    const ind = getResourceIndex(id, gameData);
+    const ind = gameData.resources.indexOf(id);
     if (ind > -1) {
       gameData.resources.splice(ind, 1);
     }
   };
   const createClusterSpawnFunc = (projectile, player, gameData) => {
     return () => {
-      gameData.projectiles = [
-        ...gameData.projectiles,
-        ...G_createProjectiles(
-          {
-            type: G_action_clusterSpawn,
-            speed: G_SPEEDS.Normal[0],
-            normalizedVec: [0, 1],
-            player,
-            pos: { x: projectile.px, y: projectile.py },
-          },
-          gameData
-        ),
-      ];
+      const newProjectiles = G_createProjectiles(
+        {
+          type: G_action_clusterSpawn,
+          speed: G_SPEEDS.Normal[0],
+          normalizedVec: [0, 1],
+          player,
+          pos: { x: projectile.px, y: projectile.py },
+        },
+        gameData
+      );
+      newProjectiles.forEach(p => {
+        gameData.projectiles.push(p.id);
+        gameData.entMap[p.id] = p;
+      });
     };
   };
 
-  const [projectile, other] = c;
-  let player = getPlayerByPlayerId(projectile.meta.player, gameData);
+  const [projectileId, otherId] = c;
+  const projectile = G_getEntityFromEntMap(projectileId, gameData);
+  if (!projectile) {
+    console.warn('no projectile exists with id', projectileId);
+    return;
+  }
+  const other = G_getEntityFromEntMap(otherId, gameData);
+  if (!projectile) {
+    console.warn('no other entity exists with id', otherId);
+    return;
+  }
+  let player = G_getEntityFromEntMap(projectile.meta.player, gameData);
   let type = projectile.meta.type;
 
   switch (G_getEntityType(other)) {
     // if a projectile hits a player, that player is dead
     case G_entity.player:
       console.log('COL with player', projectile, other);
-      const player2 = getPlayerByPlayerId(other.id, gameData);
+      const player2 = G_getEntityFromEntMap(other.id, gameData);
       player2.dead = true;
       projectile.meta.remove = true;
       if (type === G_action_cluster) {
@@ -501,7 +529,7 @@ const G_handleCollision = (c, gameData) => {
         };
       }
       break;
-    // if a projectile hits another projectile, check mass and speed speed.  If other's mass/speed is same or less, remove other.
+    // if a projectile hits another projectile, check mass and speed.  If other's mass/speed is same or less, remove other.
     case G_entity.projectile:
       if (other.meta.player === projectile.meta.player) {
         return {
@@ -605,7 +633,7 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
   };
 
   const movePlayer = (playerId, x, y, gameData) => {
-    const player = getPlayerByPlayerId(playerId, gameData);
+    const player = G_getEntityFromEntMap(playerId, gameData);
     if (isInBounds(x, y, player.r, player.r, gameData)) {
       player.x = x;
       player.y = y;
@@ -615,15 +643,24 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
   let currentGameData = gameData;
   let { projectiles, planets, players, resources } = currentGameData;
   let collisionCallbacks = [];
-  let collisions = G_applyGravity(
-    projectiles,
-    projectiles.concat(planets),
-    players.filter(p => !p.dead).concat(resources),
-    nowDt
+  const projectileList = projectiles.map(id =>
+    G_getEntityFromEntMap(id, currentGameData)
   );
-  gameData.collisions = collisions;
+  const bodyList = projectileList.concat(
+    planets.map(id => G_getEntityFromEntMap(id, currentGameData))
+  );
+  const collidables = players
+    .map(id => G_getEntityFromEntMap(id, currentGameData))
+    .concat(resources.map(id => G_getEntityFromEntMap(id, currentGameData)));
+  let collisions = G_applyGravity(projectileList, bodyList, collidables, nowDt);
+  gameData.collisions = gameData.collisions.concat(collisions);
   for (let i = 0; i < collisions.length; i++) {
-    const { remove, cb } = G_handleCollision(collisions[i], gameData);
+    const col = collisions[i];
+    if (col[2]) {
+      continue;
+    }
+    col[2] = true;
+    const { remove, cb } = G_handleCollision(col, gameData);
     if (remove) {
       collisions.splice(i, 1);
       i--;
@@ -634,34 +671,34 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
   }
 
   for (let i = 0; i < projectiles.length; i++) {
-    const p = projectiles[i];
+    const p = G_getEntityFromEntMap(projectiles[i], currentGameData);
     if (p.meta.type === G_action_move) {
-      const player = getPlayerByPlayerId(p.meta.player, gameData);
+      const player = G_getEntityFromEntMap(p.meta.player, currentGameData);
       if (player.dead) {
         p.meta.remove = true;
       } else {
-        movePlayer(p.meta.player, p.px, p.py, gameData);
+        movePlayer(p.meta.player, p.px, p.py, currentGameData);
       }
     }
     if (p.meta.remove) {
       projectiles.splice(i, 1);
+      delete gameData.entMap[p.id];
       i--;
       continue;
     }
-    if (now - startTime >= p.t || !isInBounds(p.px, p.py, p.r, p.r, gameData)) {
-      const collisionWithNothing = [p, null];
+    if (
+      now - startTime >= p.t ||
+      !isInBounds(p.px, p.py, p.r, p.r, currentGameData)
+    ) {
+      const collisionWithNothing = G_createCollision(p, null);
       // handleCollision returns {true} when the collision should be removed
-      console.log(
-        'Projectile timed out',
-        now - startTime >= p.t,
-        !isInBounds(p.px, p.py, p.r, p.r, gameData),
-        p.px,
-        p.py,
-        p.meta.type
+      const { remove, cb } = G_handleCollision(
+        collisionWithNothing,
+        currentGameData
       );
-      const { remove, cb } = G_handleCollision(collisionWithNothing, gameData);
       if (p.meta.type !== G_action_move && !remove) {
-        collisions.push(collisionWithNothing);
+        collisionWithNothing[2] = true;
+        currentGameData.collisions.push(collisionWithNothing);
       }
       if (cb) {
         collisionCallbacks.push(cb);
@@ -673,7 +710,7 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
   }
 
   for (let i = 0; i < planets.length; i++) {
-    const planet = planets[i];
+    const planet = G_getEntityFromEntMap(planets[i], currentGameData);
     if (planet.meta.remove) {
       planets.splice(i, 1);
       i--;
@@ -686,9 +723,9 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
 };
 
 const G_getCorrespondingWormhole = (wormhole, gameData) => {
-  const wormholes = gameData.resources.filter(
-    res => res.type === G_res_wormhole
-  );
+  const wormholes = gameData.resources
+    .map(resId => G_getEntityFromEntMap(resId, gameData))
+    .filter(res => res.type === G_res_wormhole);
   const resIndex = wormholes.indexOf(wormhole);
   if (resIndex % 2 === 0) {
     return wormholes[resIndex + 1];

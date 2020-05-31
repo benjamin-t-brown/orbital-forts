@@ -56,7 +56,9 @@ const MapItem = ({ app, label, color, onClick, item, wormholeCount, map }) => {
           ev.stopPropagation();
         }}
         onContextMenu={ev => {
-          ev.stopPropagation();
+          console.log('EV?', ev);
+          // ev.stopPropagation();
+          ev.preventDefault();
         }}
         style={{
           borderColor,
@@ -104,8 +106,13 @@ const MapItem = ({ app, label, color, onClick, item, wormholeCount, map }) => {
               ev.preventDefault();
               ev.stopPropagation();
               const onMove = ev => {
-                const newX = x + (ev.clientX - downX) / scale;
-                const newY = y + (ev.clientY - downY) / scale;
+                let newX = x + (ev.clientX - downX) / scale;
+                let newY = y + (ev.clientY - downY) / scale;
+                if (app.snapToGrid) {
+                  const gridPx = Math.round(app.gridSize * SCALE);
+                  newX = gridPx * Math.round(newX / gridPx);
+                  newY = gridPx * Math.round(newY / gridPx);
+                }
                 if (ref.current) {
                   ref.current.style.left = newX;
                   ref.current.style.top = newY;

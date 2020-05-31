@@ -5,10 +5,12 @@ G_DEBUG
 G_MASS_MIN
 G_MASS_MAX
 G_normalize
+G_getEntityFromEntMap
+G_action_move
 G_model_getPlayer
 G_model_getColor
 G_model_getTargetLocation
-G_model_getBroadcastHistory
+G_model_getRenderHistory
 G_view_renderSoundToggle
 */
 
@@ -26,6 +28,8 @@ let PI = Math.PI;
 
 const G_view_init = () => {
   G_view_renderSoundToggle();
+  G_view_getElementById('practice').disabled = false;
+  G_view_getElementById('create-game').disabled = false;
 };
 
 function view_hexToRGBA(hex, alpha) {
@@ -219,18 +223,30 @@ const G_view_getElementById = id => {
 
 const G_view_renderSimulation = gameData => {
   const { players, planets, projectiles } = gameData;
-  const history = G_model_getBroadcastHistory();
+  const history = G_model_getRenderHistory();
 
   view_clearDisplay();
   view_updateGlobalFrameTime();
 
-  G_view_drawPlanets(planets);
+  G_view_drawPlanets(
+    planets.map(id => G_getEntityFromEntMap(id, gameData)),
+    gameData
+  );
 
   // render previous server states
   for (let i = 0; i < history.length; i++) {
+    const historyGameData = history[i];
     const { projectiles } = history[i];
     for (let j = 0; j < projectiles.length; j++) {
-      const { px: x, py: y, r, meta } = projectiles[j];
+      const projectileId = projectiles[j];
+      const projectile = G_getEntityFromEntMap(projectileId, historyGameData);
+
+      // hack to not show the last frame, (possibly glitchy) for a move projectile
+      if (projectile.meta.type === G_action_move) {
+        continue;
+      }
+
+      const { px: x, py: y, r, meta } = projectile;
       const { x: px, y: py } = G_view_worldToPx(x, y);
       const player = G_model_getPlayer(meta.player, gameData);
       view_drawCircle(
@@ -242,13 +258,18 @@ const G_view_renderSimulation = gameData => {
     }
   }
 
-  G_view_drawProjectiles(projectiles, gameData);
-  G_view_drawPlayers(players);
+  G_view_drawProjectiles(
+    projectiles.map(id => G_getEntityFromEntMap(id, gameData)),
+    gameData
+  );
+  G_view_drawPlayers(players.map(id => G_getEntityFromEntMap(id, gameData)));
 
   // DEBUG: Draw resource hit-circles
   if (G_DEBUG) {
     for (let i = 0; i < gameData.resources.length; i++) {
-      const { x, y, r } = gameData.resources[i];
+      const resourceId = gameData.resources.length;
+      const res = G_getEntityFromEntMap(resourceId, gameData);
+      const { x, y, r } = res;
       const { x: px, y: py } = G_view_worldToPx(x, y);
       view_drawCircle(px, py, r * G_SCALE, 'white');
     }
@@ -262,12 +283,14 @@ const G_view_renderStoppedSimulation = gameData => {
   const { planets, players } = gameData;
   view_clearDisplay();
   view_updateGlobalFrameTime();
-  G_view_drawPlayers(players);
-  G_view_drawPlanets(planets);
+  G_view_drawPlayers(players.map(id => G_getEntityFromEntMap(id, gameData)));
+  G_view_drawPlanets(planets.map(id => G_getEntityFromEntMap(id, gameData)));
   // DEBUG: Draw resource hit-circles
   if (G_DEBUG) {
     for (let i = 0; i < gameData.resources.length; i++) {
-      const { x, y, r } = gameData.resources[i];
+      const resourceId = gameData.resources.length;
+      const res = G_getEntityFromEntMap(resourceId, history[i]);
+      const { x, y, r } = res;
       const { x: px, y: py } = G_view_worldToPx(x, y);
       view_drawCircle(px, py, r * G_SCALE, 'white');
     }

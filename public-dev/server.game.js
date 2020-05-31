@@ -17,6 +17,7 @@ G_getSpeedCost
 G_getRandomLocInCircle
 G_getNormalizedVec
 G_createProjectiles
+G_getEntityFromEntMap
 G_socket_sendUpdateGameList
 G_socket_createMessageSocket
 G_socket_randomId
@@ -44,6 +45,7 @@ G_replay_addRound
 G_replay_addConfirmActionForPlayer
 G_replay_addSnapshotToRound
 G_replay_addGameDataToRound
+G_replay_createDynamicGameData
 */
 
 const G_Game = (owner, name) => {
@@ -57,11 +59,14 @@ const G_Game = (owner, name) => {
   let timeoutId;
   let gameData = null;
   let broadcastCtr = 1;
-  let broadcastEvery = 10; // broadcast every this number of frames
+  let broadcastEvery = Math.round(100 / G_FRAME_MS); // broadcast every this number of frames (number in ms)
+  let saveReplayEvery = Math.round(100 / G_FRAME_MS);
   let frame = 0;
+  let frameReplay = 0;
   let FORT_SIZE = 25 / G_SCALE;
   let initialFunds = 175;
-  let baseFundsPerRound = 5;
+  // let initialFunds = 1075;
+  let baseFundsPerRound = 10;
   let mapIndex = 0;
   // let roundNumber = 0;
   // let itemRespawnRate = 15;
@@ -88,7 +93,7 @@ const G_Game = (owner, name) => {
       width,
       height,
       mapIndex,
-      previousCollisions: [],
+      entMap: {},
       players: [],
       planets: [],
       resources: [],
@@ -106,9 +111,10 @@ const G_Game = (owner, name) => {
       const loc = G_getRandomLocInCircle(x, y, r);
       let actions = {};
       for (let j in G_actions) {
+        // actions[G_actions[j][0]] = j <= 1 ? 99 : 5;
         actions[G_actions[j][0]] = j <= 1 ? 99 : 0;
       }
-      gameObj.players.push({
+      const player = {
         id: G_user_getId(user),
         name: G_user_getName(user),
         funds: initialFunds,
@@ -120,21 +126,23 @@ const G_Game = (owner, name) => {
         r: FORT_SIZE,
         ...loc,
         target: [loc.x, loc.y],
-      });
+      };
+      gameObj.entMap[player.id] = player;
+      gameObj.players.push(player.id);
     }
     G_createEntities(gameObj, map, {});
 
     return gameObj;
   };
 
-  const broadcast = (i, col, gameData) => {
+  const broadcast = (i, gameData) => {
+    const dynamicGameData = G_replay_createDynamicGameData(gameData);
     game.emitAll(
       G_S_BROADCAST,
       G_socket_createMessageSocket({
         i,
-        col,
-        timestamp: +new Date(),
-        gameData,
+        timestamp: now - startTime,
+        dynamicGameData,
       })
     );
   };
@@ -150,7 +158,7 @@ const G_Game = (owner, name) => {
         now,
       });
 
-      let { projectiles, collisions } = gameData;
+      let { projectiles } = gameData;
 
       if (projectiles.length === 0) {
         console.log('no more projectiles');
@@ -159,22 +167,14 @@ const G_Game = (owner, name) => {
       }
 
       frame++;
-      const shouldFrameReset = frame >= broadcastEvery;
-      if (shouldFrameReset || collisions.length) {
-        broadcast(
-          broadcastCtr++,
-          collisions.length > 0 && !shouldFrameReset,
-          gameData
-        );
-        G_replay_addSnapshotToRound(replay, now - startTime, gameData);
-        if (shouldFrameReset) {
-          frame = 0;
-        }
+      if (frame >= broadcastEvery) {
+        broadcast(broadcastCtr++, gameData);
+        frame = 0;
       }
-      if (collisions.length) {
-        gameData.previousCollisions = gameData.collisions.concat(
-          gameData.previousCollisions
-        );
+      frameReplay++;
+      if (frameReplay >= saveReplayEvery) {
+        frameReplay = 0;
+        G_replay_addSnapshotToRound(replay, now - startTime, gameData);
       }
     } catch (e) {
       console.error('error running simulation', e);
@@ -183,7 +183,7 @@ const G_Game = (owner, name) => {
   };
 
   const startSimulation = () => {
-    console.log('Start Simulation');
+    console.log('Start Simulation', broadcastEvery);
     startTime = now = +new Date();
     nowDt = 0;
     game.emitAll(G_S_START_SIMULATION, G_socket_createMessageSocket(gameData));
@@ -194,14 +194,24 @@ const G_Game = (owner, name) => {
     console.log('Stop Simulation');
     try {
       if (started) {
+        const dynamicGameData = G_replay_createDynamicGameData(gameData);
         game.emitAll(
           G_S_STOP_SIMULATION,
-          G_socket_createMessageSocket(gameData)
+          G_socket_createMessageSocket({
+            i: -1,
+            timestamp: now - startTime,
+            dynamicGameData,
+          })
         );
+        G_replay_addSnapshotToRound(replay, now - startTime, gameData);
+
         clearInterval(intervalId);
         intervalId = -1;
         clearTimeout(timeoutId);
         timeoutId = -1;
+        gameData.projectiles.forEach(projectileId => {
+          delete gameData.entMap[projectileId];
+        });
         gameData.projectiles = [];
         gameData.collisions = [];
 
@@ -210,7 +220,8 @@ const G_Game = (owner, name) => {
           game.finished = true;
           game.finish(result);
         } else {
-          gameData.players.forEach(p => {
+          gameData.players.forEach(playerId => {
+            const p = G_getEntityFromEntMap(playerId, gameData);
             p.ready = false;
             p.funds += baseFundsPerRound;
           });
@@ -234,18 +245,12 @@ const G_Game = (owner, name) => {
     }
     return ret;
   };
-  const getPlayer = (user, gameData) => {
-    const id = typeof user === 'string' ? user : G_user_getId(user);
-    return gameData.players.reduce((ret, pl) => {
-      return pl.id === id ? pl : ret;
-    }, null);
-  };
 
   const areAllPlayersReady = () =>
-    gameData.players.reduce(
-      (prev, curr) => prev && (curr.dead ? true : curr.ready),
-      true
-    );
+    gameData.players.reduce((prev, curr) => {
+      const player = G_getEntityFromEntMap(curr, gameData);
+      return prev && (player.dead ? true : player.ready);
+    }, true);
 
   const isGameOver = () => {
     if (isPractice) {
@@ -254,7 +259,7 @@ const G_Game = (owner, name) => {
 
     let players = [];
     for (let i = 0; i < gameData.players.length; i++) {
-      const pl = gameData.players[i];
+      const pl = G_getEntityFromEntMap(gameData.players[i], gameData);
       if (!pl.dead) {
         players.push(pl);
       }
@@ -268,9 +273,9 @@ const G_Game = (owner, name) => {
     return false;
   };
 
-  const checkActionCost = (action, speed, user) => {
+  const checkActionCost = (action, speed, playerId) => {
     const cost = G_getActionCost(action) + G_getSpeedCost(speed);
-    const player = getPlayer(user, gameData);
+    const player = G_getEntityFromEntMap(playerId, gameData);
     return player.funds > cost ? cost : false;
   };
 
@@ -307,7 +312,10 @@ const G_Game = (owner, name) => {
     },
     getGameMetadata: () => {
       const playersNotReady = gameData.players
-        .filter(player => (player.dead ? false : !player.ready))
+        .map(playerId => G_getEntityFromEntMap(playerId, gameData))
+        .filter(player => {
+          return player.dead ? false : !player.ready;
+        })
         .map(player => {
           return { playerName: player.name, color: player.color };
         });
@@ -342,7 +350,7 @@ const G_Game = (owner, name) => {
           G_user_unsetGame(user2);
 
           if (started) {
-            const pl = getPlayer(user2, gameData);
+            const pl = G_getEntityFromEntMap(G_user_getId(user2), gameData);
             if (users.length === 0) {
               game.stop();
             } else if (!pl.dead) {
@@ -435,13 +443,19 @@ const G_Game = (owner, name) => {
       }
     },
     confirmAction(action, args, user) {
-      const player = getPlayer(user, gameData);
+      const player = G_getEntityFromEntMap(G_user_getId(user), gameData);
       if (!player || player.dead) {
-        console.error('No player exists in game or player is dead.', user);
+        console.error(
+          'No player exists in game or player is dead.',
+          G_user_getId(user)
+        );
         return false;
       }
       if (player.ready) {
-        console.error('Player has already confirmed an action.', user);
+        console.error(
+          'Player has already confirmed an action.',
+          G_user_getId(user)
+        );
         return false;
       }
       const [targetX, targetY, speed] = args.split(',');
@@ -452,7 +466,7 @@ const G_Game = (owner, name) => {
 
       const speedNumber =
         (G_SPEEDS[speed] && G_SPEEDS[speed][0]) || G_SPEEDS.normal[0];
-      const cost = checkActionCost(action, speed, user);
+      const cost = checkActionCost(action, speed, G_user_getId(user));
       if (cost === false) {
         console.log('Action costs too much.', action, speed);
         return false;

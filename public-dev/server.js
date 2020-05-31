@@ -173,11 +173,15 @@ const server = {
       if (!user) {
         return;
       }
-      userName = escape(userName);
       if (!userName) {
         res.send(G_socket_createMessageRest(null, 'No given userName.'));
         return;
       }
+      if (userName.length > 10) {
+        res.send(G_socket_createMessageRest(null, 'Username too long.'));
+        return;
+      }
+      userName = escape(userName);
       const game = G_user_getGame(user);
       if (game) {
         res.send(
@@ -241,6 +245,10 @@ const server = {
     let userName = args.slice(i + 1);
     const user = G_socket_assertUser(id, req, res);
     if (!user) {
+      return;
+    }
+    if (userName.length > 10) {
+      res.send(G_socket_createMessageRest(null, 'Username too long.'));
       return;
     }
     userName = escape(userName || '');

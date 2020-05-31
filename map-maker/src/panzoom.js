@@ -10,6 +10,18 @@ export const enableDrag = () => {
   dragEnabled = true;
 };
 
+export const getTransformMatrix = ele => {
+  let trans = ele.style.transform;
+  let start = trans.indexOf('(') + 1;
+  let end = trans.indexOf(')');
+  let matrix = trans.slice(start, end).split(',');
+  return {
+    scale: +matrix[0],
+    transX: +matrix[4],
+    transY: +matrix[5],
+  };
+};
+
 function PanZoom(selector, opts) {
   function AttachPanZoom(ele, minScaleA, maxScaleA, incrementA, linerA) {
     const increment = incrementA;
@@ -21,16 +33,8 @@ function PanZoom(selector, opts) {
       oldY = 0;
     ele.style.transform = 'matrix(1, 0, 0, 1, 0, 0)';
 
-    const getTransformMatrix = () => {
-      let trans = ele.style.transform;
-      let start = trans.indexOf('(') + 1;
-      let end = trans.indexOf(')');
-      let matrix = trans.slice(start, end).split(',');
-      return {
-        scale: +matrix[0],
-        transX: +matrix[4],
-        transY: +matrix[5],
-      };
+    const getTransformM = () => {
+      return getTransformMatrix(ele);
     };
 
     const setTransformMatrix = o => {
@@ -47,14 +51,14 @@ function PanZoom(selector, opts) {
     };
 
     const applyTranslate = (dx, dy) => {
-      let newTrans = getTransformMatrix();
+      let newTrans = getTransformM();
       newTrans.transX += dx;
       newTrans.transY += dy;
       setTransformMatrix(newTrans);
     };
 
     const applyScale = (dScale, x, y) => {
-      let newTrans = getTransformMatrix();
+      let newTrans = getTransformM();
       let width = ele.width ? ele.width : ele.offsetWidth;
       let height = ele.height ? ele.height : ele.offsetHeight;
       let tranX = x - width / 2;

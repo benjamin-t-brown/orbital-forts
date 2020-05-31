@@ -19,7 +19,7 @@ const MenuMapSelect = ({ app, maps }) => {
           style={{
             width: 'calc(100% - 33px)',
           }}
-          onClick={() => {
+          onClick={async () => {
             const map = {
               name: 'Map' + Number(new Date()),
               maxRoundLength: 8000,
@@ -51,7 +51,7 @@ const MenuMapSelect = ({ app, maps }) => {
               resourceLocations: [],
               planetLocations: [],
             };
-            app.createMap(map);
+            await app.createMap(map);
             app.setMap(map.name);
           }}
         >
@@ -62,8 +62,8 @@ const MenuMapSelect = ({ app, maps }) => {
             display: 'flex',
             justifyContent: 'flex-start',
             flexDirection: 'column',
-            height: '500px',
-            overflowY: 'scroll',
+            height: '600px',
+            overflowY: 'auto',
           }}
         >
           {maps.map((map, i) => {

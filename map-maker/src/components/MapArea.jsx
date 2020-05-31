@@ -1,6 +1,7 @@
 import React from 'react';
-import PanZoom from 'panzoom';
+import PanZoom, { getTransformMatrix } from 'panzoom';
 import {
+  AU,
   SCALE,
   RES_WORMHOLE,
   RES_TYPE_TO_NAME,
@@ -16,8 +17,9 @@ let isShortClick = true;
 
 const MapArea = ({ app, map }) => {
   const mapRef = React.useRef(null);
+  const canvRef = React.useRef(null);
   React.useEffect(() => {
-    if (map && mapRef.current) {
+    if (map && mapRef.current && canvRef.current) {
       PanZoom('#map');
       const width = map.width * 2 * SCALE;
       const height = map.height * 2 * SCALE;
@@ -30,6 +32,27 @@ const MapArea = ({ app, map }) => {
       )}, ${-(y - window.innerHeight / 2)})`;
     }
   }, [map, mapRef]);
+  React.useEffect(() => {
+    if (map) {
+      const width = map.width * 2;
+      const height = map.height * 2;
+      const ctx = canvRef.current.getContext('2d');
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.strokeStyle = '#333';
+      for (let i = -height; i < height; i += AU) {
+        for (let j = -width; j <= width; j += AU) {
+          ctx.beginPath();
+          ctx.moveTo(j * SCALE, 0);
+          ctx.lineTo(j * SCALE, heightPx);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i * SCALE);
+          ctx.lineTo(widthPx, i * SCALE);
+          ctx.stroke();
+        }
+      }
+    }
+  });
 
   const handleResourceClick = res => {
     app.setSelectedItem(res, SUB_MENU_RESOURCE);
@@ -68,6 +91,9 @@ const MapArea = ({ app, map }) => {
 
   let wormholeCount = 0;
 
+  const widthPx = map.width * 2 * SCALE;
+  const heightPx = map.height * 2 * SCALE;
+
   return (
     <div
       style={{
@@ -90,7 +116,16 @@ const MapArea = ({ app, map }) => {
         }}
         onContextMenu={ev => {
           ev.preventDefault();
-          app.setTargetLoc(ev.nativeEvent.offsetX, ev.nativeEvent.offsetY);
+
+          const box = mapRef.current.getBoundingClientRect();
+          const m = getTransformMatrix(mapRef.current);
+          let offsetX = Math.round(
+            (ev.nativeEvent.clientX - box.left) / m.scale
+          );
+          let offsetY = Math.round(
+            (ev.nativeEvent.clientY - box.top) / m.scale
+          );
+          app.setTargetLoc(offsetX, offsetY);
         }}
         onClick={() => {
           clearTimeout(clickTimeoutId);
@@ -107,6 +142,16 @@ const MapArea = ({ app, map }) => {
           boxSizing: 'border-box',
         }}
       >
+        <canvas
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+          }}
+          width={widthPx}
+          height={heightPx}
+          ref={canvRef}
+        />
         {planetLocations.map((planetLoc, i) => {
           return (
             <MapItem

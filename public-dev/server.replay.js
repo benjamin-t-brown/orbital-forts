@@ -2,11 +2,14 @@
 global
 storage
 G_randomId
+G_getEntityType
+G_entity
+G_getEntityFromEntMap
 */
 
 const G_replay_createReplay = gameData => {
   const replay = {};
-  replay.version = 1.2;
+  replay.version = 2.0;
   replay.id = G_randomId();
   replay.date = +new Date();
   replay.name = gameData.name;
@@ -17,19 +20,44 @@ const G_replay_createReplay = gameData => {
   return replay;
 };
 
-const G_replay_createPartialGameData = gameData => {
+const G_replay_createDynamicGameData = gameData => {
+  const partialEntMap = {};
+
+  gameData.players.forEach(playerId => {
+    partialEntMap[playerId] = copyEntity(
+      G_getEntityFromEntMap(playerId, gameData)
+    );
+  });
+
+  gameData.projectiles.forEach(projectileId => {
+    partialEntMap[projectileId] = copyEntity(
+      G_getEntityFromEntMap(projectileId, gameData)
+    );
+  });
+
   return {
-    fields: gameData.fields.map(copyField),
-    planets: gameData.planets.map(copyBody),
-    players: gameData.players.map(copyPlayer),
-    resources: gameData.resources.map(copyRes),
+    partialEntMap,
+    collisions: gameData.collisions.map(copyCollision),
+    fields: gameData.fields.slice(),
+    planets: gameData.planets.slice(),
+    players: gameData.players.slice(),
+    resources: gameData.resources.slice(),
+    projectiles: gameData.projectiles.slice(),
+  };
+};
+
+const G_replay_createSnapShotGameData = (timestamp, gameData) => {
+  return {
+    timestamp,
+    projectiles: gameData.projectiles.map(copyBody),
+    collisions: gameData.collisions.map(copyCollision),
   };
 };
 
 const G_replay_addRound = (replay, gameData) => {
   replay.rounds.push({
     roundNumber: replay.rounds.length,
-    partialGameData: G_replay_createPartialGameData(gameData),
+    dynamicGameData: G_replay_createDynamicGameData(gameData),
     actions: {},
     snapshots: [],
   });
@@ -54,12 +82,7 @@ const G_replay_addSnapshotToRound = (replay, timestamp, gameData) => {
   const round = replay.rounds[replay.rounds.length - 1];
   round.snapshots.push({
     timestamp,
-    snapshot: {
-      timestamp,
-      projectiles: gameData.projectiles.map(copyBody),
-      collisions: gameData.collisions.map(copyCollision),
-      fields: gameData.fields.map(copyField),
-    },
+    dynamicGameData: G_replay_createDynamicGameData(gameData),
   });
 };
 
@@ -69,8 +92,8 @@ const G_replay_saveReplay = async replay => {
     if (!replays) {
       replays = [];
     }
-    if (replays.length > 25) {
-      replays.shift();
+    if (replays.length > 10) {
+      replays = replays.slice(-9);
     }
     replays.push(replay);
     await storage.set('replays', replays);
@@ -138,14 +161,20 @@ const copyBody = b => {
   };
 };
 
-const copyCollision = ([body, other]) => {
-  return [
-    {
-      ...body,
-      meta: {
-        ...body.meta,
-      },
-    },
-    other ? { ...other } : null,
-  ];
+const copyEntity = entity => {
+  const entityType = G_getEntityType(entity);
+  switch (entityType) {
+    case G_entity.player:
+      return copyPlayer(entity);
+    case G_entity.projectile:
+    case G_entity.planet:
+      return copyBody(entity);
+    default:
+      return copyRes(entity);
+  }
+};
+
+const copyCollision = col => {
+  const [bodyId, otherId, srv, id] = col || [];
+  return [bodyId, otherId, srv, id];
 };

@@ -12,6 +12,7 @@ import Button from 'elements/Button';
 import { useFetch } from 'hooks';
 import {
   SCALE,
+  AU,
   MENU_MAP_SELECT,
   MENU_MAP,
   SUB_MENU_NONE,
@@ -41,6 +42,12 @@ export default ({ defaultMapName }) => {
   const [render, setRender] = React.useState(1);
   const [targetLoc, setTargetLoc] = React.useState({ x: 0, y: 0 });
   const [exportLoading, setExportLoading] = React.useState(false);
+  const [gridSize, setGridSize] = React.useState(AU);
+  const [snapToGrid, setSnapToGrid] = React.useState(false);
+
+  const fullMenuHeight = 700;
+  const subMenuHeight = 400;
+  const menuHeight = fullMenuHeight - subMenuHeight;
 
   const app = {
     render: () => {
@@ -103,6 +110,7 @@ export default ({ defaultMapName }) => {
     createMap: async mapObj => {
       await app.saveMap(mapObj);
       setLocalMaps([...localMaps, mapObj]);
+      localMaps.unshift(mapObj);
     },
     unsetSelectedItem: () => {
       setSelectedItem(null);
@@ -163,7 +171,8 @@ export default ({ defaultMapName }) => {
       localStorage.setItem(LOCAL_STORAGE_KEY, '');
     },
     setMap: mapName => {
-      const map = maps.find(e => e.name === mapName);
+      const map = maps.concat(localMaps).find(e => e.name === mapName);
+      console.log('SET MAP', mapName, localMaps);
       if (map) {
         setMapName(mapName);
         setMenu(MENU_MAP);
@@ -215,7 +224,13 @@ export default ({ defaultMapName }) => {
         return prev + (curr.type === RES_WORMHOLE ? 1 : 0);
       }, 0);
     },
+    gridSize,
+    snapToGrid,
+    setGridSize,
+    setSnapToGrid,
   };
+
+  window.app = app;
 
   if (loading) {
     return <div>Loading...</div>;
@@ -224,9 +239,9 @@ export default ({ defaultMapName }) => {
     return <div>Error {error}</div>;
   }
 
-  const maps = data.files
-    .concat(localMaps)
-    .filter(m => !deletedMaps.find(m2 => m2.name === m.name));
+  const maps = localMaps
+    .concat(data.files)
+    .filter(m => !deletedMaps.find(m2 => m2 === m.name));
   const map = maps.find(m => m.name === mapName);
 
   if (!map && mapName) {
@@ -255,13 +270,13 @@ export default ({ defaultMapName }) => {
           left: 0,
           bottom: 0,
           width: '400px',
-          height: '600px',
+          height: fullMenuHeight,
           pointerEvents: 'none',
         }}
       >
         <div
           style={{
-            height: subMenu === SUB_MENU_NONE ? 0 : '400px',
+            height: subMenu === SUB_MENU_NONE ? 0 : subMenuHeight,
             border: '1px solid white',
             boxSizing: 'border-box',
             background: 'rgba(25,25,25,0.7)',
@@ -291,7 +306,7 @@ export default ({ defaultMapName }) => {
         </div>
         <div
           style={{
-            height: subMenu === SUB_MENU_NONE ? '600px' : '200px',
+            height: subMenu === SUB_MENU_NONE ? fullMenuHeight : menuHeight,
             border: '1px solid white',
             background: 'rgba(25,25,25,0.7)',
             pointerEvents: 'all',

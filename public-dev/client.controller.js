@@ -3,6 +3,7 @@ global
 G_SCALE
 G_AU
 G_FRAME_MS
+G_GAME_TIME_BUFFER_MS
 G_PanZoom
 G_applyGravity
 G_applyAction
@@ -15,6 +16,8 @@ G_res_spray
 G_res_planetCracker
 G_entity
 G_getEntityType
+G_getEntityFromEntMap
+G_getEntityByEntityIdAndType
 G_client_sendRequest
 G_view_getElementById
 G_view_getNowDt
@@ -55,6 +58,7 @@ G_model_getPreviousMenu
 G_model_getCurrentMenu
 G_model_getColor
 G_model_getBroadcastHistory
+G_model_getRenderHistory
 G_model_getReplay
 G_model_getReplayRoundIndex
 G_model_setGameData
@@ -74,6 +78,7 @@ G_model_setLoading
 G_model_setPreviousMenu
 G_model_setCurrentMenu
 G_model_setBroadcastHistory
+G_model_setRenderHistory
 G_model_setReplay
 G_model_setReplayRoundIndex
 G_model_setIsReplayingGame
@@ -82,6 +87,7 @@ G_model_isReplayingGame
 */
 
 let G_panZoomObj = {};
+let G_controller_collisionMap = {};
 let controller_replay_intervalId = -1;
 let controller_game_intervalId = -1;
 
@@ -103,6 +109,7 @@ const G_controller_setupGame = gameData => {
   G_model_setGameData(gameData);
   G_model_setGameMetadata({});
   G_model_setBroadcastHistory([]);
+  G_model_setRenderHistory([]);
   G_controller_showMenu('game');
   G_model_setLobbyId(null);
   const { players, width, height } = gameData;
@@ -111,11 +118,14 @@ const G_controller_setupGame = gameData => {
   G_model_setSelectedSpeed('Normal');
   G_model_setSelectedAction(G_action_shoot);
   G_model_setColor(p.color);
+  G_controller_collisionMap = {};
 
   const playersDiv = G_view_getElementById('players');
   G_view_setInnerHTML(playersDiv, '');
   for (let i = 0; i < players.length; i++) {
-    const { x, y, name, color } = players[i];
+    const playerId = players[i];
+    const player = G_getEntityFromEntMap(playerId, gameData);
+    const { x, y, name, color } = player;
     const div = document.createElement('div');
     G_view_setInnerHTML(div, name);
     div.className = 'player-name';
@@ -131,7 +141,9 @@ const G_controller_setupGame = gameData => {
   G_model_setSimulating(false);
   G_model_setGameOver(false);
 
-  G_view_createResources(gameData.resources);
+  G_view_createResources(
+    gameData.resources.map(id => G_getEntityFromEntMap(id, gameData))
+  );
   G_view_loop(() => {
     G_view_renderStoppedSimulation(gameData);
   });
@@ -142,7 +154,8 @@ const G_controller_applyGameDataToUI = gameData => {
 
   // add resources that were mistakenly removed
   for (let i = 0; i < resources; i++) {
-    const res = resources[i];
+    const resourceId = resources[i];
+    const res = G_getEntityFromEntMap(resourceId, gameData);
     const elem = G_view_getElementById('res-' + res.id);
     if (!elem) {
       G_view_createResource(res);
@@ -159,7 +172,7 @@ const G_controller_applyGameDataToUI = gameData => {
       };
     })
     .forEach(({ resourceId, child }) => {
-      const r = resources.find(r => r.id === resourceId);
+      const r = resources.find(id => id === resourceId);
       if (!r) {
         child.remove();
       }
@@ -185,28 +198,99 @@ const G_controller_stopGame = () => {
   G_model_setGamePlaying(false);
 };
 
-const G_controller_beginSimulation = gameData => {
+const G_controller_beginSimulation = (gameData, cb) => {
   G_model_setGameData(gameData);
   G_model_setWaitingForSimToStart(false);
   G_model_setSimulating(true);
   G_view_getElementById('particles').innerHTML = '';
   G_view_renderGameUI(gameData);
   G_view_renderSimulation(gameData);
+  G_model_setRenderHistory([]);
 
-  G_view_playSound('shootNorm');
+  setTimeout(() => {
+    G_view_playSound('shootNorm');
+  }, G_GAME_TIME_BUFFER_MS);
 
-  G_view_loop(() => {
-    let currentGameData = G_model_getGameData();
-    G_applyGravity(
-      currentGameData.projectiles,
-      currentGameData.planets,
-      currentGameData.players.concat(currentGameData.resources),
-      G_view_getNowDt()
-    );
-    G_view_renderSimulation(currentGameData);
-    G_controller_handleCollisions(currentGameData);
-    G_controller_updatePlayerPositions(currentGameData);
-  });
+  let now;
+  let startTime = +new Date();
+  let frame = 0;
+  let broadcastIndex = 0;
+  setTimeout(() => {
+    G_view_loop(() => {
+      now = +new Date();
+      let timeSinceStart = now - G_GAME_TIME_BUFFER_MS - startTime;
+      const broadcastHistory = G_model_getBroadcastHistory();
+
+      if (broadcastHistory.length) {
+        let gotNewUpdate = false;
+        let broadcastObj = broadcastHistory[broadcastIndex];
+        let nextBroadcastObj = broadcastHistory[broadcastIndex + 1];
+        while (
+          nextBroadcastObj &&
+          nextBroadcastObj.timestamp <= timeSinceStart
+        ) {
+          broadcastObj = nextBroadcastObj;
+          broadcastIndex = broadcastIndex + 1;
+          nextBroadcastObj = broadcastHistory[broadcastIndex + 1];
+          gotNewUpdate = true;
+        }
+        if (gotNewUpdate) {
+          const newEntMap = gameData.entMap;
+          for (let i in broadcastObj.dynamicGameData.partialEntMap) {
+            newEntMap[i] = broadcastObj.dynamicGameData.partialEntMap[i];
+          }
+          G_model_setGameData({
+            ...G_model_getGameData(),
+            ...broadcastObj.dynamicGameData,
+            entMap: newEntMap,
+          });
+          if (broadcastObj.last) {
+            console.log(
+              'got last update',
+              controller_copyGameData(broadcastObj.dynamicGameData)
+            );
+            const currentGameData = G_model_getGameData();
+            if (cb) {
+              cb(currentGameData);
+            } else {
+              G_controller_endSimulation(currentGameData);
+            }
+            return;
+          } else {
+            console.log(
+              'Got new update',
+              controller_copyGameData(broadcastObj.dynamicGameData)
+            );
+          }
+        }
+      }
+
+      let currentGameData = G_model_getGameData();
+      // console.log('current game data', currentGameData);
+      let { projectiles, planets, players, resources } = currentGameData;
+
+      const projectileList = projectiles.map(id =>
+        G_getEntityFromEntMap(id, currentGameData)
+      );
+      const bodyList = projectileList.concat(
+        planets.map(id => G_getEntityFromEntMap(id, currentGameData))
+      );
+      const collidables = players
+        .map(id => G_getEntityFromEntMap(id, currentGameData))
+        .concat(
+          resources.map(id => G_getEntityFromEntMap(id, currentGameData))
+        );
+      G_applyGravity(projectileList, bodyList, collidables, G_view_getNowDt());
+      G_view_renderSimulation(currentGameData);
+      G_controller_handleCollisions(currentGameData);
+      G_controller_updatePlayerPositions(currentGameData, timeSinceStart);
+
+      frame++;
+      if (frame % 10 === 0) {
+        G_controller_saveHistory(currentGameData);
+      }
+    });
+  }, G_GAME_TIME_BUFFER_MS);
 };
 
 const G_controller_endSimulation = gameData => {
@@ -218,8 +302,10 @@ const G_controller_endSimulation = gameData => {
   G_model_setSimulating(false);
   G_model_setSelectedSpeed('Normal');
   G_model_setSelectedAction(G_action_shoot);
+  G_model_setBroadcastHistory([]);
   if (gameData) {
     G_model_setGameData(gameData);
+    G_controller_handleCollisions(gameData);
     G_controller_applyGameDataToUI(gameData);
     const player = G_model_getMe(gameData);
     const amt = player.actions[G_model_getSelectedAction()];
@@ -228,7 +314,8 @@ const G_controller_endSimulation = gameData => {
     }
     G_view_renderGameUI(gameData);
     for (let i = 0; i < gameData.projectiles.length; i++) {
-      const projectile = gameData.projectiles[i];
+      const projectileId = gameData.projectiles[i];
+      const projectile = G_getEntityFromEntMap(projectileId, gameData);
       const { x, y, meta } = G_view_worldToPx(projectile.px, projectile.py);
       G_view_createExplosion(x, y, meta && meta.type === 'Move' ? 'mv' : 'sm');
       G_view_playSound('expl');
@@ -275,9 +362,24 @@ const G_controller_handleCollisions = gameData => {
 
   if (len) {
     for (let i = 0; i < len; i++) {
-      const [projectile, other] = collisions[i];
+      const [projectileId, otherId, , collisionId] = collisions[i];
+      if (G_controller_collisionMap[collisionId]) {
+        continue;
+      }
+      G_controller_collisionMap[collisionId] = true;
+
+      const projectile = G_getEntityFromEntMap(projectileId, gameData);
+      if (!projectile) {
+        console.warn('no projectile with id', projectileId);
+        continue;
+      }
+      const other = G_getEntityFromEntMap(otherId, gameData);
+      if (!projectile) {
+        console.warn('no other entity exists with id', otherId);
+        return;
+      }
       const { x, y } = G_view_worldToPx(projectile.px, projectile.py);
-      const player = G_model_getPlayer(projectile.meta.player, gameData);
+      const player = G_getEntityFromEntMap(projectile.meta.player, gameData);
       const textColor = G_view_getColor('light', player.color);
 
       switch (G_getEntityType(other)) {
@@ -287,7 +389,7 @@ const G_controller_handleCollisions = gameData => {
             continue;
           }
           G_view_playSound('playerDead');
-          const otherPlayer = G_model_getPlayer(other.id, gameData);
+          const otherPlayer = G_getEntityFromEntMap(other.id, gameData);
           const { x: otherX, y: otherY } = G_view_worldToPx(other.x, other.y);
           otherPlayer.dead = true;
           G_view_createTextParticle(otherX, otherY, 'Eliminated!', textColor);
@@ -384,14 +486,19 @@ const G_controller_handleCollisions = gameData => {
       }
     }
   }
-  gameData.collisions = [];
 };
 
-const G_controller_updatePlayerPositions = gameData => {
+const G_controller_updatePlayerPositions = (gameData, timeSinceStart) => {
   const projectiles = gameData.projectiles;
   for (let i = 0; i < projectiles.length; i++) {
-    const { meta, px: x, py: y } = projectiles[i];
-    if (meta.player && meta.type === G_action_move) {
+    const projectileId = projectiles[i];
+    const projectile = G_getEntityFromEntMap(projectileId, gameData);
+    const { meta, px: x, py: y } = projectile;
+    if (
+      meta.player &&
+      meta.type === G_action_move &&
+      timeSinceStart <= projectile.t
+    ) {
       const pl = G_model_getPlayer(meta.player, gameData);
       pl.x = x;
       pl.y = y;
@@ -446,7 +553,7 @@ const G_controller_showDialog = text => {
 
 const G_controller_finishGame = gameData => {
   if (G_model_getGameData() && gameData.result) {
-    const winner = G_model_getPlayer(gameData.result, gameData);
+    const winner = G_getEntityFromEntMap(gameData.result, gameData);
     if (winner) {
       if (winner === G_model_getMe(gameData)) {
         G_view_playSound('win');
@@ -540,10 +647,10 @@ const G_controller_endReplay = () => {
 const G_controller_replayStartSimulatingRound = (round, replay) => {
   console.log('Simulate round', round);
   let gameData = G_model_getGameData();
-  if (round.partialGameData) {
+  if (round.dynamicGameData) {
     G_model_setGameData({
       ...gameData,
-      ...round.partialGameData,
+      ...round.dynamicGameData,
     });
     gameData = G_model_getGameData();
   }
@@ -554,7 +661,9 @@ const G_controller_replayStartSimulatingRound = (round, replay) => {
   G_view_renderSimulation(gameData);
   G_model_setBroadcastHistory([gameData]);
 
-  G_view_playSound('shootNorm');
+  setTimeout(() => {
+    G_view_playSound('shootNorm');
+  }, G_GAME_TIME_BUFFER_MS);
 
   const me = G_model_getMe(gameData);
   if (me && round.actions[me.id]) {
@@ -567,71 +676,20 @@ const G_controller_replayStartSimulatingRound = (round, replay) => {
     G_applyAction(gameData, player, actionObject);
   }
 
-  let nowDt;
-  let now = +new Date();
-  let startTime = +new Date();
-  let frame = 0;
-  let broadcastEvery = 10;
-  let snapshotIndex = 0;
+  G_model_setBroadcastHistory(
+    round.snapshots.map((obj, i) => {
+      return {
+        timestamp: obj.timestamp,
+        dynamicGameData: obj.dynamicGameData,
+        last: i === round.snapshots.length - 1,
+      };
+    })
+  );
 
-  controller_replay_intervalId = setInterval(() => {
-    let currentGameData = G_model_getGameData();
-    let n = +new Date();
-    nowDt = n - now;
-    now = n;
-
-    G_simulate(currentGameData, {
-      startTime,
-      nowDt,
-      now,
-    });
-    G_model_setGameData(currentGameData);
-
-    let timeSinceStart = now - startTime;
-    let snapshot;
-    if (round.snapshots) {
-      let gotNewSnapshot = false;
-      snapshot = round.snapshots[snapshotIndex];
-      let nextSnapshot = round.snapshots[snapshotIndex + 1];
-      while (nextSnapshot && nextSnapshot.timestamp <= timeSinceStart) {
-        snapshot = nextSnapshot;
-        nextSnapshot = round.snapshots[snapshotIndex + 1];
-        snapshotIndex = snapshotIndex + 1;
-        gotNewSnapshot = true;
-      }
-      if (gotNewSnapshot) {
-        currentGameData.projectiles = snapshot.snapshot.projectiles;
-        currentGameData.collisions = snapshot.snapshot.collisions;
-      }
-    }
-    let { collisions } = currentGameData;
-
-    frame++;
-    if (frame >= broadcastEvery || collisions.length) {
-      frame = 0;
-
-      const history = G_model_getBroadcastHistory();
-      history.push(controller_copyGameData(currentGameData));
-      if (history.length > 500) {
-        history.shift();
-      }
-    }
-  }, G_FRAME_MS);
-
-  G_view_loop(() => {
-    let currentGameData = G_model_getGameData();
-
-    G_view_renderSimulation(currentGameData);
-    G_controller_handleCollisions(currentGameData);
-    G_controller_updatePlayerPositions(currentGameData);
-
-    let { projectiles } = currentGameData;
-
-    if (projectiles.length === 0) {
-      console.log('no more projectiles');
-      G_controller_replayStopSimulatingRound();
-    }
-  });
+  G_controller_beginSimulation(
+    gameData,
+    G_controller_replayStopSimulatingRound
+  );
 };
 
 const G_controller_replayStopSimulatingRound = () => {
@@ -649,8 +707,11 @@ const G_controller_replayStopSimulatingRound = () => {
       const projectile = gameData.projectiles[i];
       const { x, y, meta } = G_view_worldToPx(projectile.px, projectile.py);
       G_view_createExplosion(x, y, meta && meta.type === 'Move' ? 'mv' : 'sm');
+      G_view_playSound('expl');
     }
     gameData.projectiles = [];
+    G_view_renderSimulation(gameData);
+    G_controller_handleCollisions(gameData);
 
     const roundIndex = G_model_getReplayRoundIndex();
     const isGameOver = roundIndex + 1 > replay.rounds.length;
@@ -659,10 +720,10 @@ const G_controller_replayStopSimulatingRound = () => {
       G_controller_endReplay();
     } else {
       const round = replay.rounds[roundIndex];
-      if (round.partialGameData) {
+      if (round.dynamicGameData) {
         const nextRoundGameData = {
           ...gameData,
-          ...round.partialGameData,
+          ...round.dynamicGameData,
         };
         G_model_setGameData(nextRoundGameData);
         G_controller_applyGameDataToUI(nextRoundGameData);
@@ -694,4 +755,12 @@ const G_controller_replayPreviousRound = () => {
 
 const controller_copyGameData = gameData => {
   return JSON.parse(JSON.stringify(gameData));
+};
+
+const G_controller_saveHistory = gameData => {
+  const history = G_model_getRenderHistory();
+  history.push(controller_copyGameData(gameData));
+  if (history.length > 500) {
+    history.shift();
+  }
 };

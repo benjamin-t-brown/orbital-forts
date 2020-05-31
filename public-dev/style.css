@@ -261,7 +261,6 @@ span {
 }
 
 #action-buttons {
-  overflow-y: auto;
   pointer-events: all;
   text-align: center;
   width: 200px;
@@ -284,6 +283,7 @@ span {
   }
   #action-buttons {
     max-height: 200px;
+    overflow-y: auto;
   }
   body {
     font-size: 12px;

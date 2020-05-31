@@ -17,6 +17,7 @@ G_S_BROADCAST
 G_Body
 G_SCALE
 G_AU
+G_GAME_TIME_BUFFER_MS
 G_controller_gameData
 G_controller_renderGameList
 G_controller_renderLobby
@@ -74,6 +75,7 @@ const G_client_sendRequest = async (type, arg, arg2) => {
       G_model_setMaps(maps);
       G_model_setKey(key);
       G_view_renderGameList(games);
+      G_view_init();
     });
     socket.on(G_S_LIST_UPDATED, ([games]) => {
       console.log('game list updated', games);
@@ -106,23 +108,26 @@ const G_client_sendRequest = async (type, arg, arg2) => {
       G_model_setBroadcastHistory([gameData]);
       G_controller_beginSimulation(gameData);
     });
-    socket.on(G_S_STOP_SIMULATION, ([gameData]) => {
-      console.log('stop simulation', gameData);
-      G_model_setBroadcastHistory([]);
-      G_controller_endSimulation(gameData);
-    });
-    socket.on(G_S_BROADCAST, ([{ gameData }]) => {
-      G_model_setGameData(gameData);
+    socket.on(G_S_STOP_SIMULATION, ([{ dynamicGameData, timestamp }]) => {
       const history = G_model_getBroadcastHistory();
-      history.push(gameData);
+      history.push({ timestamp, dynamicGameData, last: true });
+      if (history.length > 500) {
+        history.shift();
+      }
+    });
+    socket.on(G_S_BROADCAST, ([{ dynamicGameData, timestamp }]) => {
+      const history = G_model_getBroadcastHistory();
+      history.push({ timestamp, dynamicGameData });
       if (history.length > 500) {
         history.shift();
       }
     });
     socket.on(G_S_FINISHED, ([{ gameData, replay }]) => {
-      console.log('game over', gameData, replay);
-      G_controller_finishGame(gameData);
-      G_model_setLastReplay(replay);
+      setTimeout(() => {
+        console.log('game over', gameData, replay);
+        G_controller_finishGame(gameData);
+        G_model_setLastReplay(replay);
+      }, G_GAME_TIME_BUFFER_MS);
     });
 
     socket.on('connect', () => {
@@ -144,7 +149,6 @@ const G_client_sendRequest = async (type, arg, arg2) => {
     socket = io({ upgrade: false, transports: ['websocket'] });
     bind();
     G_controller_init();
-    G_view_init();
   };
 
   window.addEventListener('load', init, false);
