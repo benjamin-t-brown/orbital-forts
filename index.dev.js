@@ -1,5 +1,3 @@
-'use strict';
-
 const fs = require('fs');
 const archiver = require('archiver');
 const express = require('express');
@@ -8,9 +6,6 @@ const parser = require('body-parser');
 const app = express();
 const server = require('http').Server(app);
 const io = require('socket.io')(server);
-const shared = fs.existsSync('./public-dev/shared.js')
-  ? fs.readFileSync('./public-dev/shared.js', 'utf8')
-  : '';
 const terser = require('terser');
 
 const isMaps = process.argv[2] === 'maps';
@@ -23,12 +18,26 @@ const serverFiles = isMaps
       .filter(fileName => fileName.includes('server.'))
       .sort((a, b) => (a.length < b.length ? -1 : 1));
 
+const sharedFiles = isMaps
+  ? []
+  : fs
+      .readdirSync('./public-dev')
+      .filter(fileName => fileName.includes('shared.'))
+      .sort((a, b) => (a.length < b.length ? -1 : 1));
+
 const serverFilesConcat = isMaps
   ? ''
   : serverFiles.reduce((prev, curr) => {
       return '\n' + prev + fs.readFileSync('./public-dev/' + curr).toString();
     }, '');
+const sharedFilesConcat = isMaps
+  ? ''
+  : sharedFiles.reduce((prev, curr) => {
+      return '\n' + prev + fs.readFileSync('./public-dev/' + curr).toString();
+    }, '');
+
 if (!isMaps) {
+  console.log('Aux Shared Files:', sharedFiles);
   console.log('Aux Server Files:', serverFiles);
 }
 
@@ -136,7 +145,9 @@ storage
       });
     } else {
       const sandbox = createSandbox();
-      require('vm').runInNewContext(shared + '\n' + serverFilesConcat, sandbox);
+      const code = sharedFilesConcat + '\n' + serverFilesConcat;
+      fs.writeFileSync('./.build/server.js', code);
+      require('vm').runInNewContext(code, sandbox);
       if (typeof sandbox.module.exports == 'function') {
         io.on('connection', sandbox.module.exports);
       } else if (typeof sandbox.module.exports == 'object') {

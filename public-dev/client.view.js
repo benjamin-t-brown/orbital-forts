@@ -89,6 +89,14 @@ const view_drawCircle = (x, y, r, color) => {
   ctx.fill();
 };
 
+const view_drawCircleOutline = (x, y, r, color) => {
+  const ctx = view_getCtx();
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, 2 * PI, false);
+  ctx.strokeStyle = color;
+  ctx.stroke();
+};
+
 const view_drawRectangle = (x, y, w, h, color, deg) => {
   const ctx = view_getCtx();
   ctx.save();
@@ -241,7 +249,6 @@ const G_view_renderSimulation = gameData => {
       const projectileId = projectiles[j];
       const projectile = G_getEntityFromEntMap(projectileId, historyGameData);
 
-      // hack to not show the last frame, (possibly glitchy) for a move projectile
       if (projectile.meta.type === G_action_move) {
         continue;
       }
@@ -259,7 +266,9 @@ const G_view_renderSimulation = gameData => {
   }
 
   G_view_drawProjectiles(
-    projectiles.map(id => G_getEntityFromEntMap(id, gameData)),
+    projectiles
+      .map(id => G_getEntityFromEntMap(id, gameData))
+      .filter(p => p.type !== G_action_move),
     gameData
   );
   G_view_drawPlayers(players.map(id => G_getEntityFromEntMap(id, gameData)));
@@ -353,7 +362,7 @@ const G_view_drawPlanets = bodies => {
       py,
       massGradientR * G_SCALE
     );
-    grd.addColorStop(0, '#0f0f0f');
+    grd.addColorStop(0, '#0d0d0d');
     grd.addColorStop(1, 'transparent');
     view_drawCircle(px, py, 800, grd);
   }
@@ -380,6 +389,12 @@ const G_view_drawProjectiles = (bodies, gameData) => {
       py,
       r * G_SCALE,
       G_model_getPlayer(meta.player, gameData).color
+    );
+    view_drawCircleOutline(
+      px,
+      py,
+      r * G_SCALE,
+      G_view_getColor('light', G_model_getPlayer(meta.player, gameData).color)
     );
   }
 };

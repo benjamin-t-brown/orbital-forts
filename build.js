@@ -27,6 +27,9 @@ const CLIENT_FILES = publicDevDir
 const SERVER_FILES = publicDevDir
   .filter(fileName => fileName.includes('server.'))
   .sort((a, b) => (a.length < b.length ? -1 : 1));
+const SHARED_FILES = publicDevDir
+  .filter(fileName => fileName.includes('shared.'))
+  .sort((a, b) => (a.length < b.length ? -1 : 1));
 const CSS_FILES = publicDevDir
   .filter(fileName => fileName.includes('style.css'))
   .sort((a, b) => (a.length < b.length ? -1 : 1));
@@ -56,7 +59,11 @@ const build = async () => {
     SERVER_FILES.reduce((prev, curr) => {
       return prev + '\n' + fs.readFileSync('public-dev/' + curr).toString();
     }, '(() => {\n') + '\n})()';
-  const sharedFile = fs.readFileSync('public-dev/shared.js').toString();
+  console.log('shared files =', SHARED_FILES.join(','));
+  const sharedFilesConcat =
+    SHARED_FILES.reduce((prev, curr) => {
+      return prev + '\n' + fs.readFileSync('public-dev/' + curr).toString();
+    }, '') + '\n';
   const cssFileConcat = CSS_FILES.reduce((prev, curr) => {
     return prev + '\n' + fs.readFileSync('public-dev/' + curr).toString();
   }, '');
@@ -83,7 +90,7 @@ const build = async () => {
   console.log('\nWrite tmp files...');
   fs.writeFileSync('./.build/client.tmp.js', clientFileConcat);
   fs.writeFileSync('./.build/server.tmp.js', serverFileConcat);
-  fs.writeFileSync('./.build/shared.tmp.js', sharedFile);
+  fs.writeFileSync('./.build/shared.tmp.js', sharedFilesConcat);
   fs.writeFileSync('./.build/style.tmp.css', cssFileConcat);
   fs.writeFileSync('./.build/index.tmp.html', htmlFile);
 

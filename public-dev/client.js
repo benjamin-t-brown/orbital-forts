@@ -46,6 +46,7 @@ G_view_renderLobby
 G_view_renderGameBanners
 G_view_init
 G_view_playSound
+G_view_renderGameUI
 */
 
 const G_client_sendRequest = async (type, arg, arg2) => {
@@ -107,6 +108,7 @@ const G_client_sendRequest = async (type, arg, arg2) => {
       console.log('begin simulation', gameData);
       G_model_setBroadcastHistory([gameData]);
       G_controller_beginSimulation(gameData);
+      G_view_renderGameUI(gameData);
     });
     socket.on(G_S_STOP_SIMULATION, ([{ dynamicGameData, timestamp }]) => {
       const history = G_model_getBroadcastHistory();

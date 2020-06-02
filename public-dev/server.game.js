@@ -59,8 +59,8 @@ const G_Game = (owner, name) => {
   let timeoutId;
   let gameData = null;
   let broadcastCtr = 1;
-  let broadcastEvery = Math.round(100 / G_FRAME_MS); // broadcast every this number of frames (number in ms)
-  let saveReplayEvery = Math.round(100 / G_FRAME_MS);
+  let broadcastEvery = Math.round(50 / G_FRAME_MS); // broadcast every this number of frames (number in ms)
+  let saveReplayEvery = Math.round(50 / G_FRAME_MS);
   let frame = 0;
   let frameReplay = 0;
   let FORT_SIZE = 25 / G_SCALE;
@@ -458,7 +458,7 @@ const G_Game = (owner, name) => {
         );
         return false;
       }
-      const [targetX, targetY, speed] = args.split(',');
+      const [targetX, targetY, speed, auxArgsJson] = args.split(',');
       const normalizedVec = G_getNormalizedVec([
         targetX - player.x,
         targetY - player.y,
@@ -468,14 +468,24 @@ const G_Game = (owner, name) => {
         (G_SPEEDS[speed] && G_SPEEDS[speed][0]) || G_SPEEDS.normal[0];
       const cost = checkActionCost(action, speed, G_user_getId(user));
       if (cost === false) {
-        console.log('Action costs too much.', action, speed);
+        console.warn('Action costs too much.', action, speed);
         return false;
       }
+
+      let auxArgs = null;
+      try {
+        auxArgs = JSON.parse(auxArgsJson);
+      } catch (e) {
+        console.warn('Could not parse aux args', action, speed);
+        return false;
+      }
+
       const actionObj = {
         action,
         speed: speedNumber,
         vec: normalizedVec,
         target: [targetX, targetY],
+        auxArgs,
         cost,
       };
       G_replay_addConfirmActionForPlayer(replay, player, actionObj);

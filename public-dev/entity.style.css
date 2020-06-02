@@ -1,3 +1,10 @@
+.arrow {
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  display: inline-block;
+  padding: 5px;
+  transform: rotate(-135deg);
+}
 @keyframes spin {
   0% {
     transform: rotateY(0deg);
@@ -37,6 +44,10 @@
 .cluster {
   background: rgb(82, 0, 0);
   border-color: rgb(128, 2, 2);
+}
+.boomerang {
+  background: rgb(56, 121, 165);
+  border-color: rgb(40, 59, 165);
 }
 .wormhole {
   /* border-color: rgba(100, 100, 100, 1); */

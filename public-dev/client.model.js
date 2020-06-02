@@ -9,6 +9,7 @@ G_getEntityFromEntMap
 G_res_spray
 G_res_coin
 G_res_planetCracker
+G_view_auxControls
 */
 
 let model_userId = null;
@@ -41,7 +42,8 @@ let model_isReplayingGame = false;
 let model_replayRoundIndex = 0;
 let model_soundEnabled = true;
 let model_soundMultiplier = 1.0;
-let model_projectileMap = {};
+let model_auxLifetimeMultiplier = 1;
+let model_boomerangAngle = 0;
 
 let model_menuIds = ['dialog', 'game', 'lobby', 'menu'];
 
@@ -106,7 +108,16 @@ const G_model_getLastReplay = () =>
   JSON.parse(JSON.stringify(model_lastReplay));
 const G_model_isSoundEnabled = () => model_soundEnabled;
 const G_model_getSoundMultiplier = () => model_soundMultiplier;
-const G_model_getProjectiles = () => model_projectileMap;
+const G_model_getAuxActionArgs = () => {
+  const selectedAction = G_model_getSelectedAction();
+  const actionObj = G_view_auxControls[selectedAction];
+  if (actionObj) {
+    return actionObj.getArgs();
+  }
+  return {};
+};
+const G_model_getAuxLifetimeMultiplier = () => model_auxLifetimeMultiplier;
+const G_model_getBoomerangAngle = () => model_boomerangAngle;
 
 const G_model_setLoading = v => (model_loading = v);
 const G_model_setWaitingForSimToStart = v => (model_waitingForSimStart = v);
@@ -150,14 +161,8 @@ const G_model_setSoundEnabled = v => {
   localStorage.setItem(G_model_getLocalStorageKey() + '_sound', v);
 };
 const G_model_setSoundMultiplier = v => (model_soundMultiplier = v);
-const G_model_setProjectiles = (projectileList, reset) => {
-  if (reset) {
-    model_projectileMap = {};
-  }
-  projectileList.forEach(proj => {
-    model_projectileMap[proj.meta.id] = proj;
-  });
-};
+const G_model_setAuxLifetimeMultiplier = v => (model_auxLifetimeMultiplier = v);
+const G_model_setBoomerangAngle = v => (model_boomerangAngle = v);
 
 const storageReplay = localStorage.getItem(
   G_model_getLocalStorageKey() + '_replay'

@@ -2,10 +2,11 @@ body {
   font-family: monospace;
   margin: 0;
   color: #fff;
-  background-color: #000;
+  background-color: #111;
   overflow: hidden;
   line-height: 1.5;
   perspective: 340px;
+  touch-action: manipulation;
 }
 button {
   font-size: 13px;
@@ -47,8 +48,8 @@ span {
   background: #1a1a1a;
   background: radial-gradient(
     circle,
-    rgba(33, 33, 33, 1) 0%,
-    rgba(8, 8, 8, 1) 100%
+    rgba(40, 40, 40, 1) 0%,
+    rgba(28, 28, 28, 1) 100%
   );
   box-shadow: rgb(26, 26, 26) 0px 0px 15px 15px;
 }
@@ -91,7 +92,6 @@ span {
   margin: 0.5rem;
 }
 .actions-label {
-  text-align: center;
   margin: 4px;
 }
 .action {
@@ -186,7 +186,7 @@ span {
   color: #fd9;
 }
 #funds {
-  margin-top: 4px;
+  margin-bottom: 4px;
 }
 .lobby-name {
   color: #9df;
@@ -205,11 +205,13 @@ span {
 
 #banner-message3 {
   margin-top: 100px;
+  text-align: center;
 }
 
 #confirm-button {
-  width: 200px;
+  width: 170px;
   padding: 10px;
+  margin: 0.5rem 0;
 }
 
 .menu-section {
@@ -246,6 +248,18 @@ span {
 .join-button:hover {
   background-color: #336;
 }
+.controls-aux {
+  min-height: 50px;
+  margin: 0.5rem 0;
+  pointer-events: all;
+}
+#controls-slider-input {
+  width: 168px;
+  margin: 0.5rem 0;
+}
+#controls-primary {
+  width: 170px;
+}
 
 #sound {
   opacity: 0.3;
@@ -266,7 +280,7 @@ span {
   width: 200px;
 }
 
-@media only screen and (max-width: 420px) {
+@media only screen and (max-width: 421px) {
   #main {
     max-width: 320px;
     font-size: 12px;
@@ -275,17 +289,52 @@ span {
     font-size: 12px;
     padding: 0.5rem 0px;
   }
-  .action-label {
-    font-size: 10px;
+  .actions-label {
+    text-align: left;
   }
   .banner-message {
     font-size: 13px;
   }
+  .h-button-list {
+    width: unset;
+  }
   #action-buttons {
     max-height: 200px;
+    width: unset;
     overflow-y: auto;
+  }
+  #controls {
+    justify-content: space-between;
+    flex-direction: row-reverse;
+    align-items: flex-end;
+  }
+  #controls-additional {
+    width: calc(100% - 0.5rem);
+    padding-left: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .controls-aux {
+    width: 80%;
+  }
+  #controls-slider-input {
+    width: 100%;
+  }
+  #funds {
+    text-align: left;
+  }
+  #confirm-button {
+    margin: 0px;
+    width: 80%;
   }
   body {
     font-size: 12px;
+  }
+  button {
+    font-size: 12px;
+    margin: 0.25rem;
+    color: #fff;
+    padding: 5px 10px;
   }
 }

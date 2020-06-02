@@ -2,6 +2,8 @@
 global
 G_SPEEDS
 G_actions
+G_action_cluster
+G_action_boomerang
 G_getActionCost
 G_getSpeedCost
 G_view_none
@@ -29,6 +31,10 @@ G_model_getGameMetadata
 G_model_getMapIndex
 G_model_getMaps
 G_model_getReplayRoundIndex
+G_model_getAuxLifetimeMultiplier
+G_model_setAuxLifetimeMultiplier
+G_model_getBoomerangAngle
+G_model_setBoomerangAngle
 G_model_isSoundEnabled
 */
 
@@ -122,6 +128,7 @@ const G_view_renderGameUI = gameData => {
   target.appendChild(X);
 
   G_view_renderGameBanners(gameData);
+  G_view_renderAuxControls();
 };
 
 const G_view_renderGameBanners = (gameData, gameMetadata, replay) => {
@@ -312,6 +319,7 @@ const G_view_renderReplayUI = (replay, gameData) => {
   G_view_getElementById('view-last-replay').style.display = G_view_none;
   G_view_getElementById('back-practice').style.display = G_view_block;
   G_view_getElementById('confirm-button').style.display = G_view_none;
+  G_view_getElementById('controls-additional').style.display = G_view_none;
 
   // speed buttons
   G_view_setInnerHTML(G_view_getElementById('speed-buttons'), '');
@@ -357,5 +365,89 @@ const G_view_renderSoundToggle = () => {
     elem.src = 'sound.svg';
   } else {
     elem.src = 'no-sound.svg';
+  }
+};
+
+const G_view_auxControls = {
+  [G_action_cluster]: {
+    render: () => {
+      const value = G_model_getAuxLifetimeMultiplier();
+      const input = G_view_getElementById('controls-slider-input');
+      input.value = value;
+      input.min = 0.25;
+      input.max = 2;
+      input.step = 0.25;
+      const renderLabel = value => {
+        G_view_setInnerHTML(
+          G_view_getElementById('controls-slider-input-label'),
+          `Lifetime: x${value}`
+        );
+      };
+      input.onchange = ev => {
+        G_model_setAuxLifetimeMultiplier(ev.target.value);
+        G_view_auxControls[G_action_cluster].render();
+      };
+      input.oninput = ev => {
+        renderLabel(ev.target.value);
+      };
+      G_view_getElementById('controls-slider').style.display = G_view_block;
+      renderLabel(value);
+    },
+    getArgs: () => {
+      return {
+        lifetimeMultiplier: G_model_getAuxLifetimeMultiplier(),
+      };
+    },
+  },
+  [G_action_boomerang]: {
+    render: () => {
+      const value = G_model_getBoomerangAngle();
+      const input = G_view_getElementById('controls-slider-input');
+      input.value = value;
+      input.min = 0;
+      input.max = 360;
+      input.step = 1;
+      const renderLabel = value => {
+        let deg = -135 + Number(value);
+        G_view_setInnerHTML(
+          G_view_getElementById('controls-slider-input-label'),
+          `<div style="margin:0.5rem; text-align:center"><div class="arrow" style="transform: rotate(${deg}deg)"></div></div>
+          <div>Accel. Angle: ${value} deg</div>`
+        );
+      };
+      input.onchange = ev => {
+        G_model_setBoomerangAngle(ev.target.value);
+        G_view_auxControls[G_action_boomerang].render();
+      };
+      input.oninput = ev => {
+        renderLabel(ev.target.value);
+      };
+      G_view_getElementById('controls-slider').style.display = G_view_block;
+      renderLabel(value);
+    },
+    getArgs: () => {
+      return {
+        accelerationAngle: G_model_getBoomerangAngle(),
+      };
+    },
+  },
+};
+
+const G_view_renderAuxControls = () => {
+  const controlsAdditional = G_view_getElementById('controls-additional');
+  controlsAdditional.style.display = null;
+  Array.prototype.forEach.call(controlsAdditional.children, elem => {
+    if (elem.id !== 'confirm-button') {
+      elem.style.display = G_view_none;
+    }
+  });
+
+  const selectedAction = G_model_getSelectedAction();
+  const auxObj = G_view_auxControls[selectedAction];
+
+  if (auxObj) {
+    auxObj.render();
+  } else {
+    // G_view_auxControls[G_action_cluster].render();
   }
 };

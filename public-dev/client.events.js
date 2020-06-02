@@ -64,6 +64,7 @@ G_model_isSimulating
 G_model_isGameOver
 G_model_setSoundEnabled
 G_model_isReplayingGame
+G_model_getAuxActionArgs
 */
 
 window.events = {
@@ -144,6 +145,7 @@ window.events = {
     let args = [
       ...G_model_getTargetLocation(),
       G_model_getSelectedSpeed(),
+      JSON.stringify(G_model_getAuxActionArgs()),
     ].join(',');
     const cost = G_getActionCost(action);
     const player = G_model_getMe(G_model_getGameData());
@@ -164,6 +166,7 @@ window.events = {
       G_model_setWaitingForSimToStart(false);
     }
     G_controller_setLoading(false);
+    G_view_renderGameUI(G_model_getGameData());
   },
   setAction(action) {
     G_view_playSound('button2');

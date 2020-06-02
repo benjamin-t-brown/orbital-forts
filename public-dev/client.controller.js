@@ -19,6 +19,7 @@ G_getEntityType
 G_getEntityFromEntMap
 G_getEntityByEntityIdAndType
 G_client_sendRequest
+G_controller_handleCollisions
 G_view_getElementById
 G_view_getNowDt
 G_view_getColor
@@ -203,7 +204,6 @@ const G_controller_beginSimulation = (gameData, cb) => {
   G_model_setWaitingForSimToStart(false);
   G_model_setSimulating(true);
   G_view_getElementById('particles').innerHTML = '';
-  G_view_renderGameUI(gameData);
   G_view_renderSimulation(gameData);
   G_model_setRenderHistory([]);
 
@@ -328,7 +328,7 @@ const G_controller_endSimulation = gameData => {
       const fundsGained = gameData.baseFundsPerRound;
       G_view_setInnerHTML(
         G_view_getElementById('banner-message3'),
-        `All players granted $${fundsGained} at completion of the round.`
+        `All players granted $${fundsGained}.`
       );
       setTimeout(() => {
         G_view_createTextParticle(
@@ -341,149 +341,6 @@ const G_controller_endSimulation = gameData => {
       setTimeout(() => {
         G_view_setInnerHTML(G_view_getElementById('banner-message3'), '');
       }, 3000);
-    }
-  }
-};
-
-const G_controller_handleCollisions = gameData => {
-  let collisions = gameData.collisions;
-  let len = collisions.length;
-
-  const removeResourceFromDOM = resourceId => {
-    const parent = (G_view_getElementById('res-' + resourceId) || {})
-      .parentElement;
-    if (parent) {
-      parent.remove();
-      return true;
-    } else {
-      return false;
-    }
-  };
-
-  if (len) {
-    for (let i = 0; i < len; i++) {
-      const [projectileId, otherId, , collisionId] = collisions[i];
-      if (G_controller_collisionMap[collisionId]) {
-        continue;
-      }
-      G_controller_collisionMap[collisionId] = true;
-
-      const projectile = G_getEntityFromEntMap(projectileId, gameData);
-      if (!projectile) {
-        console.warn('no projectile with id', projectileId);
-        continue;
-      }
-      const other = G_getEntityFromEntMap(otherId, gameData);
-      if (!projectile) {
-        console.warn('no other entity exists with id', otherId);
-        return;
-      }
-      const { x, y } = G_view_worldToPx(projectile.px, projectile.py);
-      const player = G_getEntityFromEntMap(projectile.meta.player, gameData);
-      const textColor = G_view_getColor('light', player.color);
-
-      switch (G_getEntityType(other)) {
-        case G_entity.player: {
-          // ignore collisions with self
-          if (projectile.meta.player === other.id) {
-            continue;
-          }
-          G_view_playSound('playerDead');
-          const otherPlayer = G_getEntityFromEntMap(other.id, gameData);
-          const { x: otherX, y: otherY } = G_view_worldToPx(other.x, other.y);
-          otherPlayer.dead = true;
-          G_view_createTextParticle(otherX, otherY, 'Eliminated!', textColor);
-          G_view_createLargeExplosion(
-            otherPlayer.x,
-            otherPlayer.y,
-            G_AU / 2,
-            7
-          );
-          break;
-        }
-        case G_entity.projectile: {
-          G_view_playSound('expl');
-          G_view_createExplosion(x, y);
-          break;
-        }
-        case G_entity.coin: {
-          G_view_playSound('coin');
-          G_view_createExplosion(x, y);
-          removeResourceFromDOM(other.id);
-          const { x: otherX, y: otherY } = G_view_worldToPx(other.x, other.y);
-          G_view_createTextParticle(
-            otherX,
-            otherY,
-            '+$' + other.value,
-            textColor
-          );
-          break;
-        }
-        case G_entity.spray: {
-          G_view_playSound('getSpreadFire');
-          G_view_createExplosion(x, y);
-          removeResourceFromDOM(other.id);
-          const { x: otherX, y: otherY } = G_view_worldToPx(other.x, other.y);
-          G_view_createTextParticle(otherX, otherY, '+2 SpreadFire', textColor);
-          break;
-        }
-        case G_entity.planetCracker: {
-          G_view_playSound('getPC');
-          G_view_createExplosion(x, y);
-          removeResourceFromDOM(other.id);
-          const { x: otherX, y: otherY } = G_view_worldToPx(other.x, other.y);
-          G_view_createTextParticle(
-            otherX,
-            otherY,
-            '+2 PlanetCracker',
-            textColor
-          );
-          break;
-        }
-        case G_entity.cluster: {
-          G_view_playSound('getCluster');
-          G_view_createExplosion(x, y);
-          removeResourceFromDOM(other.id);
-          const { x: otherX, y: otherY } = G_view_worldToPx(other.x, other.y);
-          G_view_createTextParticle(
-            otherX,
-            otherY,
-            '+2 ClusterBomb',
-            textColor
-          );
-          break;
-        }
-        case G_entity.planet: {
-          if (projectile.meta.type === G_action_planetCracker) {
-            G_view_playSound('explLarge2');
-            G_view_createLargeExplosion(other.px, other.py, G_AU, 30);
-          } else if (projectile.meta.type === G_action_move) {
-            G_view_playSound('playerDead2');
-            player.dead = true;
-            G_view_createTextParticle(x, y, 'Eliminated!', textColor);
-            G_view_createLargeExplosion(player.x, player.y, G_AU / 2, 10);
-          } else {
-            G_view_playSound('expl');
-            G_view_createExplosion(x, y);
-          }
-          break;
-        }
-        case G_entity.wormhole: {
-          G_view_playSound('wormhole');
-          const { x: prevX, y: prevY } = G_view_worldToPx(
-            projectile.meta.prevX,
-            projectile.meta.prevY
-          );
-          G_view_createWormholeParticle(x, y);
-          G_view_createWormholeParticle(prevX, prevY);
-          break;
-        }
-        case G_entity.nothing:
-        default: {
-          G_view_playSound('expl');
-          G_view_createExplosion(x, y);
-        }
-      }
     }
   }
 };
@@ -508,7 +365,6 @@ const G_controller_updatePlayerPositions = (gameData, timeSinceStart) => {
 
 const G_controller_setLoading = v => {
   G_model_setLoading(v);
-  G_view_renderGameUI(G_model_getGameData());
 };
 
 let transitionTimeoutId = -1;
