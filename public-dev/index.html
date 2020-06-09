@@ -50,6 +50,11 @@
         </div>
         <button id="view-last-replay" class="post-game-button" onclick="events.viewLastReplay()">View Replay</button>
         <button id="leave-game" class="post-game-button" onclick="events.returnToMenu()">Leave</button>
+        <div id="controls-replay" class="game-ui" style="bottom:0px">
+          <div id="replay-round-label"></div>
+          <button id="replay-restart" onclick="events.viewLastReplay()">Restart Replay</button>
+          <button id="replay-next-round" onclick="events.replayNextRound()">Simulate Round</button>
+        </div>
         <div id="controls" class="game-ui" style="bottom:0px">
           <div id="controls-additional">
             <div id="controls-slider" class="controls-aux">
@@ -110,6 +115,7 @@
     <script src="/shared.js"></script>
     <script src="/shared.collision.js"></script>
     <script src="/shared.simulate.js"></script>
+    <script src="/shared.lib.sat.js"></script>
     <script src="/client.lib.panzoom.js"></script>
     <script src="/client.lib.zzfx.js"></script>
     <script src="/client.model.js"></script>

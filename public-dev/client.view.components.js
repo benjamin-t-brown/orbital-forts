@@ -14,6 +14,8 @@ G_view_setInnerHTML
 G_view_worldToPx
 G_view_getColor
 G_view_getColorStyles
+G_view_showElement
+G_view_hideElement
 G_model_getMe
 G_model_isLoading
 G_model_isGameOver
@@ -57,6 +59,7 @@ const G_view_renderGameUI = gameData => {
   G_view_getElementById('center-self').style.display = G_view_block;
   G_view_getElementById('confirm-button').style.display = G_view_block;
   G_view_getElementById('control-panel').style.display = 'flex';
+  G_view_hideElement('controls-replay');
 
   G_view_getElementById('leave-game').style.display =
     isGameOver || isDead ? G_view_block : G_view_none;
@@ -310,40 +313,32 @@ const G_view_renderReplayUI = (replay, gameData) => {
   const isGameOver = G_model_isGameOver();
 
   // visibility
-  G_view_getElementById('controls').style.display = G_model_isSimulating()
-    ? G_view_none
-    : 'flex';
-  G_view_getElementById('control-panel').style.display = G_view_none;
-  G_view_getElementById('center-self').style.display = G_view_none;
-  G_view_getElementById('leave-game').style.display = G_view_none;
-  G_view_getElementById('view-last-replay').style.display = G_view_none;
-  G_view_getElementById('back-practice').style.display = G_view_block;
-  G_view_getElementById('confirm-button').style.display = G_view_none;
-  G_view_getElementById('controls-additional').style.display = G_view_none;
+  G_view_hideElement('controls');
+  G_view_hideElement('center-self');
+  G_view_hideElement('leave-game');
+  G_view_hideElement('view-last-replay');
+  G_view_hideElement('confirm-button');
+  G_view_hideElement('controls-additional');
 
-  // speed buttons
-  G_view_setInnerHTML(G_view_getElementById('speed-buttons'), '');
+  G_view_showElement('back-practice');
+  if (G_model_isSimulating()) {
+    G_view_hideElement('controls-replay');
+  } else {
+    G_view_showElement('controls-replay');
+  }
 
   if (isGameOver) {
-    G_view_setInnerHTML(
-      G_view_getElementById('action-buttons'),
-      `
-<button onclick="events.viewLastReplay()">Restart Replay</button>
-    `
-    );
+    G_view_showElement('replay-restart');
+    G_view_hideElement('replay-next-round');
   } else {
-    G_view_setInnerHTML(
-      G_view_getElementById('action-buttons'),
-      `
-  <button onclick="events.replayNextRound()">Simulate Round</button>
-    `
-    );
+    G_view_showElement('replay-next-round');
+    G_view_hideElement('replay-restart');
   }
 
   // info
   const currentRoundIndex = G_model_getReplayRoundIndex();
   G_view_setInnerHTML(
-    G_view_getElementById('funds'),
+    G_view_getElementById('replay-round-label'),
     'Current Round: ' +
       Math.min(currentRoundIndex + 1, replay.rounds.length) +
       '/' +
@@ -351,8 +346,7 @@ const G_view_renderReplayUI = (replay, gameData) => {
   );
 
   // target
-  let target = G_view_getElementById('target');
-  target.style.display = G_view_none;
+  G_view_hideElement('target');
 
   G_view_renderGameBanners(gameData, null, replay);
 };
@@ -399,38 +393,38 @@ const G_view_auxControls = {
       };
     },
   },
-  [G_action_boomerang]: {
-    render: () => {
-      const value = G_model_getBoomerangAngle();
-      const input = G_view_getElementById('controls-slider-input');
-      input.value = value;
-      input.min = 0;
-      input.max = 360;
-      input.step = 1;
-      const renderLabel = value => {
-        let deg = -135 + Number(value);
-        G_view_setInnerHTML(
-          G_view_getElementById('controls-slider-input-label'),
-          `<div style="margin:0.5rem; text-align:center"><div class="arrow" style="transform: rotate(${deg}deg)"></div></div>
-          <div>Accel. Angle: ${value} deg</div>`
-        );
-      };
-      input.onchange = ev => {
-        G_model_setBoomerangAngle(ev.target.value);
-        G_view_auxControls[G_action_boomerang].render();
-      };
-      input.oninput = ev => {
-        renderLabel(ev.target.value);
-      };
-      G_view_getElementById('controls-slider').style.display = G_view_block;
-      renderLabel(value);
-    },
-    getArgs: () => {
-      return {
-        accelerationAngle: G_model_getBoomerangAngle(),
-      };
-    },
-  },
+  // [G_action_boomerang]: {
+  //   render: () => {
+  //     const value = G_model_getBoomerangAngle();
+  //     const input = G_view_getElementById('controls-slider-input');
+  //     input.value = value;
+  //     input.min = 0;
+  //     input.max = 360;
+  //     input.step = 1;
+  //     const renderLabel = value => {
+  //       let deg = -135 + Number(value);
+  //       G_view_setInnerHTML(
+  //         G_view_getElementById('controls-slider-input-label'),
+  //         `<div style="margin:0.5rem; text-align:center"><div class="arrow" style="transform: rotate(${deg}deg)"></div></div>
+  //         <div>Accel. Angle: ${value} deg</div>`
+  //       );
+  //     };
+  //     input.onchange = ev => {
+  //       G_model_setBoomerangAngle(ev.target.value);
+  //       G_view_auxControls[G_action_boomerang].render();
+  //     };
+  //     input.oninput = ev => {
+  //       renderLabel(ev.target.value);
+  //     };
+  //     G_view_getElementById('controls-slider').style.display = G_view_block;
+  //     renderLabel(value);
+  //   },
+  //   getArgs: () => {
+  //     return {
+  //       accelerationAngle: G_model_getBoomerangAngle(),
+  //     };
+  //   },
+  // },
 };
 
 const G_view_renderAuxControls = () => {

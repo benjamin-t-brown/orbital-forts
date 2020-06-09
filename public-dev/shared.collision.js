@@ -10,107 +10,61 @@ G_action_clusterSpawn
 G_action_move
 G_action_boomerang
 G_entity
+G_getEntityType
 G_getEntityFromEntMap
 G_applyGravity
 G_handleCollision
-G_createCollision
-G_res_coin
-G_res_spray
-G_res_planetCracker
-G_res_cluster
-G_res_wormhole
-G_res_boomerang
+G_res_proximityMine
 G_randomId
 G_createProjectiles
 G_getNormalizedVec
 G_getCorrespondingWormhole
+G_Shockwave
+G_res_shockwave
 */
 
-const G_getEntityType = object => {
-  const isPlayer = o => {
-    return !!(o.color && object.name);
-  };
-  const isPlanet = o => {
-    return !!o.color;
-  };
-  const isProjectile = o => {
-    return o.meta && o.meta.proj;
-  };
-  const isCoin = o => {
-    return o.type === G_res_coin;
-  };
-  const isSpray = o => {
-    return o.type === G_res_spray;
-  };
-  const isPlanetCracker = o => {
-    return o.type === G_res_planetCracker;
-  };
-  const isCluster = o => {
-    return o.type === G_res_cluster;
-  };
-  const isWormhole = o => {
-    return o.type === G_res_wormhole;
-  };
-  const isBoomerang = o => {
-    return o.type === G_res_boomerang;
-  };
-  switch (true) {
-    case !object:
-      return G_entity.nothing;
-    case isPlayer(object):
-      return G_entity.player;
-    case isProjectile(object):
-      return G_entity.projectile;
-    case isCoin(object):
-      return G_entity.coin;
-    case isSpray(object):
-      return G_entity.spray;
-    case isPlanetCracker(object):
-      return G_entity.planetCracker;
-    case isPlanet(object):
-      return G_entity.planet;
-    case isCluster(object):
-      return G_entity.cluster;
-    case isWormhole(object):
-      return G_entity.wormhole;
-    case isBoomerang(object):
-      return G_entity.boomerang;
-    default:
-      console.log('Unknown entity', object);
-      return G_entity.nothing;
+const removeResource = (id, gameData) => {
+  const ind = gameData.resources.indexOf(id);
+  if (ind > -1) {
+    gameData.resources.splice(ind, 1);
   }
 };
 
-const G_createCollision = (self, other) => {
-  return [self.id, (other && other.id) || 0, false, G_randomId()];
+const createShockwaveCb = (x, y, gameData) => {
+  return () => {
+    const shockwave = G_Shockwave(
+      G_res_shockwave,
+      x,
+      y,
+      115 / G_SCALE,
+      250,
+      gameData.tss
+    );
+    gameData.entMap[shockwave.id] = shockwave;
+    gameData.shockwaves.push(shockwave.id);
+  };
+};
+
+const createClusterSpawnCb = (projectile, player, gameData) => {
+  return () => {
+    const newProjectiles = G_createProjectiles(
+      {
+        type: G_action_clusterSpawn,
+        speed: G_SPEEDS.Normal[0],
+        normalizedVec: [0, 1],
+        player,
+        pos: { x: projectile.px, y: projectile.py },
+      },
+      gameData
+    );
+    newProjectiles.forEach(p => {
+      gameData.projectiles.push(p.id);
+      gameData.entMap[p.id] = p;
+    });
+  };
 };
 
 const G_handleCollision = (c, gameData) => {
-  const removeResource = (id, gameData) => {
-    const ind = gameData.resources.indexOf(id);
-    if (ind > -1) {
-      gameData.resources.splice(ind, 1);
-    }
-  };
-  const createClusterSpawnFunc = (projectile, player, gameData) => {
-    return () => {
-      const newProjectiles = G_createProjectiles(
-        {
-          type: G_action_clusterSpawn,
-          speed: G_SPEEDS.Normal[0],
-          normalizedVec: [0, 1],
-          player,
-          pos: { x: projectile.px, y: projectile.py },
-        },
-        gameData
-      );
-      newProjectiles.forEach(p => {
-        gameData.projectiles.push(p.id);
-        gameData.entMap[p.id] = p;
-      });
-    };
-  };
-
   const [projectileId, otherId] = c;
   const projectile = G_getEntityFromEntMap(projectileId, gameData);
   if (!projectile) {
@@ -122,10 +76,53 @@ const G_handleCollision = (c, gameData) => {
     console.warn('no other entity exists with id', otherId);
     return;
   }
-  let player = G_getEntityFromEntMap(projectile.meta.player, gameData);
-  let type = projectile.meta.type;
+  let player;
+  let type;
+  if (projectile.meta) {
+    player = G_getEntityFromEntMap(projectile.meta.player, gameData);
+    type = projectile.meta.type;
+  }
 
-  switch (G_getEntityType(other)) {
+  return G_handleCollisionStandard({
+    projectile,
+    other,
+    player,
+    type,
+    gameData,
+  });
+};
+
+const G_handleCollisionStandard = ({
+  projectile,
+  other,
+  player,
+  type,
+  gameData,
+}) => {
+  const projectileEntityType = G_getEntityType(projectile);
+  const otherEntityType = G_getEntityType(other);
+
+  if (projectileEntityType === G_entity.shockwave) {
+    switch (otherEntityType) {
+      case G_entity.player: {
+        console.log('COL shockwave with player', projectile, other);
+        const player2 = G_getEntityFromEntMap(other.id, gameData);
+        console.log('player died from a shockwave');
+        player2.dead = true;
+        break;
+      }
+      case G_entity.proximityMine: {
+        console.log('COL shockwave with proximity mine', projectile, other);
+        removeResource(other.id, gameData);
+        return {
+          cb: createShockwaveCb(other.x, other.y, gameData),
+        };
+      }
+    }
+    return {};
+  }
+
+  switch (otherEntityType) {
     // if a projectile hits a player, that player is dead
     case G_entity.player:
       console.log('COL with player', projectile, other);
@@ -134,7 +131,7 @@ const G_handleCollision = (c, gameData) => {
       projectile.meta.remove = true;
       if (type === G_action_cluster) {
         return {
-          cb: createClusterSpawnFunc(projectile, player, gameData),
+          cb: createClusterSpawnCb(projectile, player, gameData),
         };
       }
       break;
@@ -158,7 +155,7 @@ const G_handleCollision = (c, gameData) => {
       }
       if (type === G_action_cluster) {
         return {
-          cb: createClusterSpawnFunc(projectile, player, gameData),
+          cb: createClusterSpawnCb(projectile, player, gameData),
         };
       }
       break;
@@ -204,7 +201,7 @@ const G_handleCollision = (c, gameData) => {
         other.meta.remove = true;
       } else if (type === G_action_cluster) {
         return {
-          cb: createClusterSpawnFunc(projectile, player, gameData),
+          cb: createClusterSpawnCb(projectile, player, gameData),
         };
       }
       break;
@@ -225,10 +222,21 @@ const G_handleCollision = (c, gameData) => {
       projectile.px = newX;
       projectile.py = newY;
       break;
+    case G_entity.proximityMine:
+      console.log('COL with proximity mine', projectile, other);
+      removeResource(other.id, gameData);
+      projectile.meta.remove = true;
+      if (type === G_action_move) {
+        console.log('Player died by running into a proximity mine');
+        player.dead = true;
+      }
+      return {
+        cb: createShockwaveCb(other.x, other.y, gameData),
+      };
     case G_entity.nothing:
       if (type === G_action_cluster) {
         return {
-          cb: createClusterSpawnFunc(projectile, player, gameData),
+          cb: createClusterSpawnCb(projectile, player, gameData),
         };
       }
   }

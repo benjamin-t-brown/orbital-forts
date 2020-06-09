@@ -6,7 +6,9 @@ G_MASS_MIN
 G_MASS_MAX
 G_normalize
 G_getEntityFromEntMap
+G_getHeadingTowards
 G_action_move
+G_res_shockwave
 G_model_getPlayer
 G_model_getColor
 G_model_getTargetLocation
@@ -97,6 +99,23 @@ const view_drawCircleOutline = (x, y, r, color) => {
   ctx.stroke();
 };
 
+const view_drawPoly = (pos, points, color) => {
+  const ctx = view_getCtx();
+  ctx.save();
+  ctx.beginPath();
+  ctx.translate(pos.x, pos.y);
+  ctx.fillStyle = color;
+  const firstPoint = points[0];
+  ctx.moveTo(firstPoint.x, firstPoint.y);
+  for (let i = 1; i < points.length; i++) {
+    const point = points[i];
+    ctx.lineTo(point.x, point.y);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+};
+
 const view_drawRectangle = (x, y, w, h, color, deg) => {
   const ctx = view_getCtx();
   ctx.save();
@@ -113,30 +132,6 @@ const view_drawRectangle = (x, y, w, h, color, deg) => {
     ctx.fillRect(0, 0, w, h);
   }
   ctx.restore();
-};
-
-const view_getHeadingTowards = (myX, myY, x, y) => {
-  let lenY = y - myY;
-  let lenX = x - myX;
-  const { sqrt, asin } = Math;
-  let hyp = sqrt(lenX * lenX + lenY * lenY);
-  let ret = 0;
-  if (y >= myY && x >= myX) {
-    ret = (asin(lenY / hyp) * 180) / PI + 90;
-  } else if (y >= myY && x < myX) {
-    ret = (asin(lenY / -hyp) * 180) / PI - 90;
-  } else if (y < myY && x > myX) {
-    ret = (asin(lenY / hyp) * 180) / PI + 90;
-  } else {
-    ret = (asin(-lenY / hyp) * 180) / PI - 90;
-  }
-  if (ret >= 360) {
-    ret = 360 - ret;
-  }
-  if (ret < 0) {
-    ret = 360 + ret;
-  }
-  return isNaN(ret) ? 0 : ret;
 };
 
 const G_view_getColor = (colorPrefix, colorName) => {
@@ -167,6 +162,20 @@ const G_view_getColorStyles = color =>
     'light',
     color
   )};`;
+
+const G_view_hideElement = id => {
+  (typeof id === 'string'
+    ? G_view_getElementById(id)
+    : id
+  ).style.display = G_view_none;
+};
+
+const G_view_showElement = id => {
+  (typeof id === 'string'
+    ? G_view_getElementById(id)
+    : id
+  ).style.display = null;
+};
 
 const G_view_getNowDt = () => view_nowDt;
 
@@ -273,10 +282,20 @@ const G_view_renderSimulation = gameData => {
   );
   G_view_drawPlayers(players.map(id => G_getEntityFromEntMap(id, gameData)));
 
+  // DEBUG: Draw shockwaves
+  // for (let i in gameData.entMap) {
+  //   const entity = gameData.entMap[i];
+  //   if (entity.type === G_res_shockwave) {
+  //     const { x, y, r } = entity;
+  //     const { x: px, y: py } = G_view_worldToPx(x, y);
+  //     view_drawCircle(px, py, r * G_SCALE, 'orange');
+  //   }
+  // }
+
   // DEBUG: Draw resource hit-circles
   if (G_DEBUG) {
     for (let i = 0; i < gameData.resources.length; i++) {
-      const resourceId = gameData.resources.length;
+      const resourceId = gameData.resources[i];
       const res = G_getEntityFromEntMap(resourceId, gameData);
       const { x, y, r } = res;
       const { x: px, y: py } = G_view_worldToPx(x, y);
@@ -294,11 +313,19 @@ const G_view_renderStoppedSimulation = gameData => {
   view_updateGlobalFrameTime();
   G_view_drawPlayers(players.map(id => G_getEntityFromEntMap(id, gameData)));
   G_view_drawPlanets(planets.map(id => G_getEntityFromEntMap(id, gameData)));
+
+  for (let i in gameData.entMap) {
+    const entity = gameData.entMap[i];
+    if (entity.type === G_res_shockwave) {
+      view_drawCircle(entity.x, entity.y, entity.r * G_SCALE, 'orange');
+    }
+  }
+
   // DEBUG: Draw resource hit-circles
   if (G_DEBUG) {
     for (let i = 0; i < gameData.resources.length; i++) {
-      const resourceId = gameData.resources.length;
-      const res = G_getEntityFromEntMap(resourceId, history[i]);
+      const resourceId = gameData.resources[i];
+      const res = G_getEntityFromEntMap(resourceId, gameData);
       const { x, y, r } = res;
       const { x: px, y: py } = G_view_worldToPx(x, y);
       view_drawCircle(px, py, r * G_SCALE, 'white');
@@ -334,7 +361,7 @@ const G_view_drawPlayers = players => {
       10,
       60,
       'white',
-      view_getHeadingTowards(px, py, tPx, tPy)
+      G_getHeadingTowards(px, py, tPx, tPy)
     );
     view_drawCircle(px, py, sz2 / 1.5, G_view_getColor('light', color));
   }

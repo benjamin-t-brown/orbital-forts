@@ -9,15 +9,34 @@ G_getEntityFromEntMap
 
 const G_replay_createReplay = gameData => {
   const replay = {};
-  replay.version = 2.0;
+  replay.version = 2.1;
   replay.id = G_randomId();
   replay.date = +new Date();
   replay.name = gameData.name;
   replay.mapName = gameData.mapName;
-  replay.initialGameData = JSON.parse(JSON.stringify(gameData));
+  replay.mode = gameData.mode;
+  replay.initialGameData = G_replay_copyGameData(gameData);
   replay.rounds = [];
   replay.result = null;
   return replay;
+};
+
+const G_replay_copyGameData = gameData => {
+  const entMap = {};
+
+  for (let i in gameData.entMap) {
+    entMap[i] = copyEntity(gameData.entMap[i]);
+  }
+  return {
+    ...gameData,
+    entMap,
+    collisions: gameData.collisions.map(copyCollision),
+    fields: gameData.fields.slice(),
+    planets: gameData.planets.slice(),
+    players: gameData.players.slice(),
+    resources: gameData.resources.slice(),
+    projectiles: gameData.projectiles.slice(),
+  };
 };
 
 const G_replay_createDynamicGameData = gameData => {
@@ -33,6 +52,17 @@ const G_replay_createDynamicGameData = gameData => {
     partialEntMap[projectileId] = copyEntity(
       G_getEntityFromEntMap(projectileId, gameData)
     );
+  });
+
+  // this might break...
+  gameData.shockwaves.forEach(shockwaveId => {
+    const shockwave = G_getEntityFromEntMap(shockwaveId, gameData);
+    if (!shockwave.sent) {
+      shockwaveId.sent = true;
+      partialEntMap[shockwaveId] = copyEntity(
+        G_getEntityFromEntMap(shockwaveId, gameData)
+      );
+    }
   });
 
   return {
@@ -147,21 +177,47 @@ const copyRes = r => {
 };
 
 const copyField = f => {
-  return {
+  const obj = {
     ...f,
   };
+  delete obj.satBox;
+  return obj;
+};
+
+const copyShockwave = s => {
+  const obj = {
+    ...s,
+  };
+  delete obj.satCircle;
+  delete obj.sent;
+  return obj;
 };
 
 const copyBody = b => {
-  return {
+  const obj = {
     ...b,
     meta: {
       ...b.meta,
     },
   };
+  delete obj.satCircle;
+  delete obj.update;
+  return obj;
+};
+
+const copyCollision = col => {
+  const [bodyId, otherId, srv, id] = col || [];
+  return [bodyId, otherId, srv, id];
 };
 
 const copyEntity = entity => {
+  const isField = entity => {
+    return [G_entity.wall].includes(entity.type);
+  };
+  const isShockwave = entity => {
+    return [G_entity.proximityShockwave].includes(entity.type);
+  };
+
   const entityType = G_getEntityType(entity);
   switch (entityType) {
     case G_entity.player:
@@ -170,11 +226,11 @@ const copyEntity = entity => {
     case G_entity.planet:
       return copyBody(entity);
     default:
+      if (isField(entity)) {
+        return copyField(entity);
+      } else if (isShockwave(entity)) {
+        return copyShockwave(entity);
+      }
       return copyRes(entity);
   }
-};
-
-const copyCollision = col => {
-  const [bodyId, otherId, srv, id] = col || [];
-  return [bodyId, otherId, srv, id];
 };

@@ -79,8 +79,7 @@ const build = async () => {
     .replace(
       '</footer>',
       `<script src="/socket.io/socket.io.js"></script>
-    <script src="/shared.js"></script>
-    <script src="/client.js"></script>
+    <script src="/client+shared.js"></script>
     </footer>`
     );
 
@@ -115,11 +114,14 @@ const build = async () => {
     'ecma=9',
   ];
 
+  console.log('\nBabel client side code...');
+  await execAsync('npm run babel');
+
   console.log('\nMinify code...');
   await execAsync(
     `node_modules/.bin/terser --compress ${terserArgs.join(
       ','
-    )} --mangle -o public/client.js -- .build/client.tmp.js`
+    )} --mangle -o public/client+shared.js -- .build/client+shared.babel.js`
   );
   await execAsync(
     `node_modules/.bin/terser --compress ${terserArgs.join(

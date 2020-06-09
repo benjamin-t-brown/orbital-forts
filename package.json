@@ -8,12 +8,14 @@
     "start": "node index.js",
     "build": "node build.js",
     "build:zip": "node build.js zip",
+    "babel": "babel .build/shared.tmp.js .build/client.tmp.js --out-file .build/client+shared.babel.js",
     "maps": "node index.dev.js maps",
     "maps:prod": "node index.js maps",
     "export": "node index.dev.js export",
     "start:dev": "node index.dev.js",
     "test": "mocha test"
   },
+  "browserslist": "> 0.25%, not dead",
   "keywords": [
     "js13kgames",
     "server"
@@ -32,6 +34,10 @@
     "terser": "^4.6.11"
   },
   "devDependencies": {
+    "@babel/cli": "^7.10.1",
+    "@babel/core": "^7.10.2",
+    "@babel/plugin-transform-runtime": "^7.10.1",
+    "@babel/preset-env": "^7.10.2",
     "babel-eslint": "^10.0.1",
     "eslint": "^5.16.0",
     "eslint-config-prettier": "^6.4.0",

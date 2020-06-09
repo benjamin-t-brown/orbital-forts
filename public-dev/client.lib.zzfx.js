@@ -91,8 +91,12 @@ zzfx = (
   y.connect(zzfxX.destination);
   y.start();
 };
-zzfxX = new AudioContext();
+//zzfxX = new AudioContext();
 
 // fix compatibility issues with old web audio (optional)
 // if this is used, you must remove the zzfxX=new AudioContext line above!
-//zzfxX=new(window.AudioContext||webkitAudioContext);zzfxX.z=zzfxX.createBufferSource;zzfxX.createBufferSource=(s=zzfxX.z())=>(s.start=s.start||(t=>zzfxX.noteOn(t)),s)
+zzfxX = new (window.AudioContext || webkitAudioContext)();
+zzfxX.z = zzfxX.createBufferSource;
+zzfxX.createBufferSource = (s = zzfxX.z()) => (
+  (s.start = s.start || (t => zzfxX.noteOn(t))), s
+);

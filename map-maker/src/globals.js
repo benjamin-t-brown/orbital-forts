@@ -13,6 +13,7 @@ export const RES_PLANET_CRACKER = 'planet-cracker';
 export const RES_CLUSTER = 'cluster';
 export const RES_WORMHOLE = 'wormhole';
 export const RES_BOOMERANG = 'boomerang';
+export const RES_PROXIMITY_MINE = 'prox';
 
 export const MENU_MAP_SELECT = 'map_select';
 export const MENU_MAP = 'map';
@@ -30,6 +31,7 @@ export const RES = [
   RES_PLANET_CRACKER,
   RES_CLUSTER,
   RES_BOOMERANG,
+  RES_PROXIMITY_MINE,
 ];
 
 export const RES_TYPE_TO_NAME = {
@@ -39,6 +41,7 @@ export const RES_TYPE_TO_NAME = {
   [RES_CLUSTER]: 'ClusterBomb',
   [RES_WORMHOLE]: 'Wormhole',
   [RES_BOOMERANG]: 'Boomerang',
+  [RES_PROXIMITY_MINE]: 'ProximityMine',
 };
 
 export const RES_TYPE_TO_COLOR = {
@@ -48,4 +51,5 @@ export const RES_TYPE_TO_COLOR = {
   [RES_CLUSTER]: '#910000',
   [RES_WORMHOLE]: '#2050a0',
   [RES_BOOMERANG]: '#5020b0',
+  [RES_PROXIMITY_MINE]: '#ff0000',
 };

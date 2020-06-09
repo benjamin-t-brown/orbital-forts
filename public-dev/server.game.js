@@ -8,6 +8,7 @@ G_AU
 G_SPEEDS
 G_FRAME_MS
 G_Body
+G_MODES
 G_applyGravity
 G_applyAction
 G_actions
@@ -46,6 +47,7 @@ G_replay_addConfirmActionForPlayer
 G_replay_addSnapshotToRound
 G_replay_addGameDataToRound
 G_replay_createDynamicGameData
+G_replay_copyGameData
 */
 
 const G_Game = (owner, name) => {
@@ -53,12 +55,13 @@ const G_Game = (owner, name) => {
   let now;
   let nowDt;
   let startTime = 0;
+  let timeSinceStart = 0;
   let started = false;
   let isPractice = false;
   let intervalId;
   let timeoutId;
   let gameData = null;
-  let broadcastCtr = 1;
+  let broadcastCtr = 0;
   let broadcastEvery = Math.round(50 / G_FRAME_MS); // broadcast every this number of frames (number in ms)
   let saveReplayEvery = Math.round(50 / G_FRAME_MS);
   let frame = 0;
@@ -89,20 +92,22 @@ const G_Game = (owner, name) => {
     const { width, height, playerLocations } = map;
     const gameObj = {
       name,
+      mode: G_MODES.standard,
       mapName: map.name,
       width,
       height,
       mapIndex,
       entMap: {},
+      collisions: [],
       players: [],
       planets: [],
       resources: [],
       projectiles: [],
-      collisions: [],
       fields: [],
+      shockwaves: [],
       result: false,
       baseFundsPerRound,
-      maxRoundLength: map.maxRoundLength,
+      maxRoundLength: 10000,
     };
 
     for (let i = 0; i < usersR.length; i++) {
@@ -110,9 +115,11 @@ const G_Game = (owner, name) => {
       const { x, y, r } = playerLocations[i];
       const loc = G_getRandomLocInCircle(x, y, r);
       let actions = {};
-      for (let j in G_actions) {
-        // actions[G_actions[j][0]] = j <= 1 ? 99 : 5;
-        actions[G_actions[j][0]] = j <= 1 ? 99 : 0;
+      if (gameObj.mode === G_MODES.standard) {
+        for (let j in G_actions) {
+          // actions[G_actions[j][0]] = j <= 1 ? 99 : 5;
+          actions[G_actions[j][0]] = j <= 1 ? 99 : 0;
+        }
       }
       const player = {
         id: G_user_getId(user),
@@ -137,11 +144,12 @@ const G_Game = (owner, name) => {
 
   const broadcast = (i, gameData) => {
     const dynamicGameData = G_replay_createDynamicGameData(gameData);
+    dynamicGameData.i = i;
     game.emitAll(
       G_S_BROADCAST,
       G_socket_createMessageSocket({
         i,
-        timestamp: now - startTime,
+        timestamp: timeSinceStart,
         dynamicGameData,
       })
     );
@@ -151,17 +159,20 @@ const G_Game = (owner, name) => {
       let n = +new Date();
       nowDt = n - now;
       now = n;
+      timeSinceStart = now - startTime;
+      gameData.tss = timeSinceStart;
 
       G_simulate(gameData, {
         startTime,
         nowDt,
         now,
+        timeSinceStart: timeSinceStart,
       });
 
-      let { projectiles } = gameData;
+      let { projectiles, shockwaves } = gameData;
 
-      if (projectiles.length === 0) {
-        console.log('no more projectiles');
+      if (projectiles.length === 0 && shockwaves.length === 0) {
+        console.log('no more projectiles or shockwaves');
         stopSimulation();
         return;
       }
@@ -186,8 +197,12 @@ const G_Game = (owner, name) => {
     console.log('Start Simulation', broadcastEvery);
     startTime = now = +new Date();
     nowDt = 0;
-    game.emitAll(G_S_START_SIMULATION, G_socket_createMessageSocket(gameData));
-    timeoutId = setTimeout(stopSimulation, gameData.maxRoundLength);
+    broadcastCtr = 0;
+    game.emitAll(
+      G_S_START_SIMULATION,
+      G_socket_createMessageSocket(G_replay_copyGameData(gameData))
+    );
+    timeoutId = setTimeout(stopSimulation, 20000);
     intervalId = setInterval(simulate, G_FRAME_MS);
   };
   const stopSimulation = () => {
@@ -212,6 +227,10 @@ const G_Game = (owner, name) => {
         gameData.projectiles.forEach(projectileId => {
           delete gameData.entMap[projectileId];
         });
+        gameData.shockwaves.forEach(shockwaveId => {
+          delete gameData.entMap[shockwaveId];
+        });
+        gameData.shockwaves = [];
         gameData.projectiles = [];
         gameData.collisions = [];
 
@@ -395,7 +414,7 @@ const G_Game = (owner, name) => {
         G_S_START,
         G_socket_createMessageSocket({
           startTime,
-          gameData,
+          gameData: G_replay_copyGameData(gameData),
         })
       );
 
@@ -489,6 +508,7 @@ const G_Game = (owner, name) => {
         cost,
       };
       G_replay_addConfirmActionForPlayer(replay, player, actionObj);
+      gameData.tss = 0; // without this, tStart is undefined
       G_applyAction(gameData, player, actionObj);
       player.ready = true;
       if (areAllPlayersReady()) {

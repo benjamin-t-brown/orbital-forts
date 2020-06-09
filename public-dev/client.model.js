@@ -47,13 +47,6 @@ let model_boomerangAngle = 0;
 
 let model_menuIds = ['dialog', 'game', 'lobby', 'menu'];
 
-const G_model_isResource = elem => {
-  if (elem) {
-    return [G_res_coin, G_res_spray, G_res_planetCracker].includes(elem.type);
-  }
-  return false;
-};
-
 const G_model_isPlayer = obj => {
   return !!(obj.color && obj.target);
 };
@@ -70,7 +63,7 @@ const G_model_getMe = gameData => {
       return p;
     }
   }
-  return players[0];
+  return G_getEntityFromEntMap(players[0], gameData);
 };
 
 const G_model_getLocalStorageKey = () => 'js13k2020_orbital_forts';

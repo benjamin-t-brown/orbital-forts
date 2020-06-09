@@ -7,6 +7,7 @@ G_getEntityType
 G_entity
 G_action_planetCracker
 G_action_move
+G_action_clusterSpawn
 G_view_getElementById
 G_view_worldToPx
 G_view_getColor
@@ -14,6 +15,7 @@ G_view_playSound
 G_view_createTextParticle
 G_view_createLargeExplosion
 G_view_createExplosion
+G_view_createShockwave
 G_view_createWormholeParticle
 */
 
@@ -51,13 +53,17 @@ const G_controller_handleCollisions = gameData => {
         return;
       }
       const { x, y } = G_view_worldToPx(projectile.px, projectile.py);
-      const player = G_getEntityFromEntMap(projectile.meta.player, gameData);
+      const player =
+        G_getEntityFromEntMap(
+          projectile.meta && projectile.meta.player,
+          gameData
+        ) || {};
       const textColor = G_view_getColor('light', player.color);
 
       switch (G_getEntityType(other)) {
         case G_entity.player: {
           // ignore collisions with self
-          if (projectile.meta.player === other.id) {
+          if (projectile.meta && projectile.meta.player === other.id) {
             continue;
           }
           G_view_playSound('playerDead');
@@ -74,7 +80,11 @@ const G_controller_handleCollisions = gameData => {
           break;
         }
         case G_entity.projectile: {
-          G_view_playSound('expl');
+          if (gameData.projectiles.includes(projectile.id)) {
+            G_view_playSound('expl');
+          } else {
+            G_view_playSound('explProjEat');
+          }
           G_view_createExplosion(x, y);
           break;
         }
@@ -126,7 +136,7 @@ const G_controller_handleCollisions = gameData => {
           break;
         }
         case G_entity.boomerang: {
-          G_view_playSound('getSpreadFire');
+          G_view_playSound('getBoom');
           G_view_createExplosion(x, y);
           removeResourceFromDOM(other.id);
           const { x: otherX, y: otherY } = G_view_worldToPx(other.x, other.y);
@@ -158,9 +168,20 @@ const G_controller_handleCollisions = gameData => {
           G_view_createWormholeParticle(prevX, prevY);
           break;
         }
+        case G_entity.proximityMine: {
+          G_view_playSound('hitProx');
+          const { x: px, y: py } = G_view_worldToPx(other.x, other.y);
+          G_view_createShockwave(px, py);
+          removeResourceFromDOM(other.id);
+          break;
+        }
         case G_entity.nothing:
         default: {
-          G_view_playSound('expl');
+          if (projectile.meta.type === G_action_clusterSpawn) {
+            G_view_playSound('explC');
+          } else {
+            G_view_playSound('expl');
+          }
           G_view_createExplosion(x, y);
         }
       }

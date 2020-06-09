@@ -44,7 +44,6 @@ G_view_renderReplayUI
 G_view_playSound
 G_model_getLocalStorageKey
 G_model_isGamePlaying
-G_model_isResource
 G_model_isPlayer
 G_model_getGameData
 G_model_getMe
@@ -259,6 +258,9 @@ const G_controller_beginSimulation = (gameData, cb) => {
           } else {
             console.log(
               'Got new update',
+              timeSinceStart - broadcastObj.timestamp,
+              timeSinceStart,
+              broadcastObj.timestamp,
               controller_copyGameData(broadcastObj.dynamicGameData)
             );
           }
@@ -267,7 +269,7 @@ const G_controller_beginSimulation = (gameData, cb) => {
 
       let currentGameData = G_model_getGameData();
       // console.log('current game data', currentGameData);
-      let { projectiles, planets, players, resources } = currentGameData;
+      let { projectiles, planets } = currentGameData;
 
       const projectileList = projectiles.map(id =>
         G_getEntityFromEntMap(id, currentGameData)
@@ -275,12 +277,7 @@ const G_controller_beginSimulation = (gameData, cb) => {
       const bodyList = projectileList.concat(
         planets.map(id => G_getEntityFromEntMap(id, currentGameData))
       );
-      const collidables = players
-        .map(id => G_getEntityFromEntMap(id, currentGameData))
-        .concat(
-          resources.map(id => G_getEntityFromEntMap(id, currentGameData))
-        );
-      G_applyGravity(projectileList, bodyList, collidables, G_view_getNowDt());
+      G_applyGravity(projectileList, bodyList, false, G_view_getNowDt());
       G_view_renderSimulation(currentGameData);
       G_controller_handleCollisions(currentGameData);
       G_controller_updatePlayerPositions(currentGameData, timeSinceStart);

@@ -164,3 +164,18 @@ const G_view_createWormholeParticle = (x, y) => {
     );
   }
 };
+
+const G_view_createShockwave = (x, y) => {
+  const id = x + ',' + y;
+  if (G_view_getElementById(id)) {
+    return;
+  }
+  view_createElement(
+    G_view_getElementById('particles'),
+    `<div class="shockwave2"><div class="shockwave3"></div></div>`,
+    'shockwave',
+    x - 50 - 3,
+    y - 50 - 3,
+    id
+  );
+};

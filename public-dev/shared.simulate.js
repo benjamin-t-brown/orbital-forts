@@ -1,9 +1,12 @@
 /*
 global
+SAT
 G_SCALE
 G_G
 G_FRAME_MS
 G_Body
+G_entity
+G_res_proximityMine
 G_body_setAcceleration
 G_action_spread
 G_action_planetCracker
@@ -15,6 +18,7 @@ G_getEntityFromEntMap
 G_applyGravity
 G_handleCollision
 G_createCollision
+G_createProjectiles
 G_collidesCir
 G_dist
 */
@@ -50,107 +54,6 @@ const G_applyAction = (gameData, player, actionObj) => {
   player.action = action;
 };
 
-const G_createProjectiles = (
-  {
-    type,
-    speed,
-    normalizedVec,
-    player,
-    pos,
-    lifetimeMultiplier,
-    accelerationAngle,
-  },
-  gameData
-) => {
-  const rotateVectorDeg = (vec, ang) => {
-    const { round, cos, sin, PI } = Math;
-    ang *= PI / 180;
-    const cosA = cos(ang);
-    const sinA = sin(ang);
-    const tenThousand = 10000;
-    return [
-      round(tenThousand * (vec[0] * cosA - vec[1] * sinA)) / tenThousand,
-      round(tenThousand * (vec[0] * sinA + vec[1] * cosA)) / tenThousand,
-    ];
-  };
-
-  const ret = [];
-  let mass = 1;
-  let r = 5 / G_SCALE;
-  let len = gameData.maxRoundLength;
-  let vx = normalizedVec[0];
-  let vy = normalizedVec[1];
-  let { color, x, y } = player;
-  if (pos) {
-    x = pos.x;
-    y = pos.y;
-  }
-
-  const createProjectile = (vx, vy) => {
-    let b = G_Body(
-      {
-        proj: true,
-        type,
-        player: player.id,
-        speed,
-        color: player.color,
-      },
-      mass,
-      color,
-      r,
-      vx * speed,
-      vy * speed,
-      x,
-      y,
-      len
-    );
-    return b;
-  };
-
-  switch (type) {
-    case G_action_spread:
-      for (let i = -5; i <= 5; i += 5) {
-        let [vx, vy] = rotateVectorDeg(normalizedVec, i);
-        ret.push(createProjectile(vx, vy));
-      }
-      break;
-    case G_action_planetCracker:
-      r = 20 / G_SCALE;
-      mass = 10;
-      ret.push(createProjectile(vx, vy));
-      break;
-    case G_action_cluster:
-      len = 2000 * lifetimeMultiplier;
-      r = 10 / G_SCALE;
-      ret.push(createProjectile(vx, vy));
-      break;
-    case G_action_clusterSpawn:
-      r = 4 / G_SCALE;
-      len = 4500;
-      for (let i = 0; i < 360; i += 20) {
-        let [vx, vy] = rotateVectorDeg(normalizedVec, i);
-        ret.push(createProjectile(vx, vy));
-        len += 75;
-      }
-      break;
-    case G_action_boomerang:
-      accelerationAngle = (parseFloat(accelerationAngle) * Math.PI) / 180;
-      const proj = createProjectile(vx, vy);
-      const ay = Math.round(Math.cos(accelerationAngle) * 550);
-      const ax = Math.round(Math.sin(accelerationAngle) * 550);
-      console.log('set accel', ay, ax);
-      G_body_setAcceleration(proj, ax, ay);
-      ret.push(proj);
-      break;
-    case G_action_move:
-      len = 1000;
-      r = 15 / G_SCALE;
-    default:
-      ret.push(createProjectile(vx, vy));
-  }
-  return ret;
-};
-
 const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
   const getAttraction = (self, other) => {
     let { px: sx, py: sy, mass: sMass, r: sr } = self;
@@ -158,7 +61,7 @@ const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
     let dx = ox - sx;
     let dy = oy - sy;
     let d = Math.max(G_dist(dx, dy), 0.001);
-    let c = G_collidesCir(dx, dy, sr, or);
+    let c = extraColliders ? G_collidesCir(dx, dy, sr, or) : false;
     let f = (G_G * sMass * oMass) / d ** 2;
     let theta = Math.atan2(dy, dx);
     let fx = Math.cos(theta) * f;
@@ -187,13 +90,15 @@ const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
       totalFy += fy;
     }
 
-    for (let j = 0; j < extraColliders.length; j++) {
-      let other = extraColliders[j];
-      let { x, y, r } = other;
-      let c = G_collidesCir(x - body.px, y - body.py, r, body.r);
-      if (c && body.meta.player !== other.id) {
-        const col = G_createCollision(body, other);
-        collisions.push(col);
+    if (extraColliders) {
+      for (let j = 0; j < extraColliders.length; j++) {
+        let other = extraColliders[j];
+        let { x, y, r } = other;
+        let c = G_collidesCir(x - body.px, y - body.py, r, body.r);
+        if (c && body.meta.player !== other.id) {
+          const col = G_createCollision(body, other);
+          collisions.push(col);
+        }
       }
     }
 
@@ -205,7 +110,46 @@ const G_applyGravity = (bodies, gravityBodies, extraColliders, dt) => {
   return collisions;
 };
 
-const G_simulate = (gameData, { now, nowDt, startTime }) => {
+const G_applyFields = (bodies, gameData) => {
+  const response = new SAT.Response();
+  for (let i = 0; i < bodies.length; i++) {
+    const body = bodies[i];
+    for (let j = 0; j < gameData.fields.length; j++) {
+      response.clear();
+      const field = G_getEntityFromEntMap(gameData.fields[j]);
+      if (SAT.testCirclePolygon(body.satCircle, field.satBox, response)) {
+        const col = G_createCollision(body, field, response);
+        gameData.collisions.push(col);
+      }
+    }
+  }
+};
+
+const G_applyShockwaves = (entities, gameData) => {
+  const shockwaves = gameData.shockwaves.map(id =>
+    G_getEntityFromEntMap(id, gameData)
+  );
+  for (let j = 0; j < shockwaves.length; j++) {
+    const shockwave = shockwaves[j];
+    if (gameData.tss - shockwave.tStart > shockwave.t) {
+      console.log('APPLY SHOCKWAVE!', shockwave);
+      gameData.shockwaves.splice(j, 1);
+      for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        const x = entity.px === undefined ? entity.x : entity.px;
+        const y = entity.py === undefined ? entity.y : entity.py;
+        const r = entity.r;
+        const dx = shockwave.x - x;
+        const dy = shockwave.y - y;
+        if (G_collidesCir(dx, dy, r, shockwave.r)) {
+          gameData.collisions.push(G_createCollision(shockwave, entity));
+        }
+      }
+    }
+  }
+};
+
+const G_simulate = (gameData, { nowDt }) => {
   const isInBounds = (x, y, width, height, gameData) => {
     const { width: worldWidth, height: worldHeight } = gameData;
     return (
@@ -225,28 +169,48 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
   };
 
   let currentGameData = gameData;
-  let { projectiles, planets, players, resources } = currentGameData;
+  let { projectiles, planets, players, resources, fields } = currentGameData;
   let collisionCallbacks = [];
   const projectileList = projectiles.map(id =>
     G_getEntityFromEntMap(id, currentGameData)
   );
+  const shockwaveList = projectileList
+    .concat(players.map(id => G_getEntityFromEntMap(id, currentGameData)))
+    .concat(
+      resources
+        .filter(
+          id =>
+            G_getEntityFromEntMap(id, currentGameData).type ===
+            G_res_proximityMine
+        )
+        .map(id => G_getEntityFromEntMap(id, currentGameData))
+    );
   const bodyList = projectileList.concat(
     planets.map(id => G_getEntityFromEntMap(id, currentGameData))
   );
-  const collidables = players
+  const gravityCollidables = players
     .map(id => G_getEntityFromEntMap(id, currentGameData))
+    .filter(p => !p.dead)
     .concat(resources.map(id => G_getEntityFromEntMap(id, currentGameData)));
-  let collisions = G_applyGravity(projectileList, bodyList, collidables, nowDt);
+  let collisions = G_applyGravity(
+    projectileList,
+    bodyList,
+    gravityCollidables,
+    nowDt
+  );
   gameData.collisions = gameData.collisions.concat(collisions);
-  for (let i = 0; i < collisions.length; i++) {
-    const col = collisions[i];
+  G_applyFields(projectileList, gameData);
+  G_applyShockwaves(shockwaveList, gameData);
+  for (let i = 0; i < gameData.collisions.length; i++) {
+    const col = gameData.collisions[i];
     if (col[2]) {
       continue;
     }
+    console.log('got a col', col);
     col[2] = true;
     const { remove, cb } = G_handleCollision(col, gameData);
     if (remove) {
-      collisions.splice(i, 1);
+      gameData.collisions.splice(i, 1);
       i--;
     }
     if (cb) {
@@ -264,6 +228,9 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
         movePlayer(p.meta.player, p.px, p.py, currentGameData);
       }
     }
+    if (p.update) {
+      p.update(p);
+    }
     if (p.meta.remove) {
       projectiles.splice(i, 1);
       delete gameData.entMap[p.id];
@@ -271,11 +238,11 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
       continue;
     }
     if (
-      now - startTime >= p.t ||
+      gameData.tss - p.tStart >= p.t ||
       !isInBounds(p.px, p.py, p.r, p.r, currentGameData)
     ) {
       const collisionWithNothing = G_createCollision(p, null);
-      // handleCollision returns {true} when the collision should be removed
+      // handleCollision returns { remove: true } when the collision should be removed
       const { remove, cb } = G_handleCollision(
         collisionWithNothing,
         currentGameData
@@ -297,6 +264,14 @@ const G_simulate = (gameData, { now, nowDt, startTime }) => {
     const planet = G_getEntityFromEntMap(planets[i], currentGameData);
     if (planet.meta.remove) {
       planets.splice(i, 1);
+      i--;
+    }
+  }
+
+  for (let i = 0; i < fields.length; i++) {
+    const field = G_getEntityFromEntMap(fields[i], currentGameData);
+    if (field.meta.remove) {
+      fields.splice(i, 1);
       i--;
     }
   }

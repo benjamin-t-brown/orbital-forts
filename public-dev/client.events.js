@@ -29,7 +29,6 @@ G_view_getElementById
 G_view_renderLobby
 G_view_renderGameUI
 G_view_renderSimulation
-G_view_pxToWorld
 G_view_worldToPx
 G_view_createTextParticle
 G_view_getColor
