@@ -144,8 +144,9 @@ const G_controller_setupGame = gameData => {
   G_view_createResources(
     gameData.resources.map(id => G_getEntityFromEntMap(id, gameData))
   );
+  G_view_renderStoppedSimulation(gameData);
   G_view_loop(() => {
-    G_view_renderStoppedSimulation(gameData);
+    //G_view_renderStoppedSimulation(gameData);
   });
 };
 
@@ -203,8 +204,8 @@ const G_controller_beginSimulation = (gameData, cb) => {
   G_model_setWaitingForSimToStart(false);
   G_model_setSimulating(true);
   G_view_getElementById('particles').innerHTML = '';
-  G_view_renderSimulation(gameData);
   G_model_setRenderHistory([]);
+  G_view_renderSimulation(gameData);
 
   setTimeout(() => {
     G_view_playSound('shootNorm');
@@ -293,8 +294,8 @@ const G_controller_beginSimulation = (gameData, cb) => {
 const G_controller_endSimulation = gameData => {
   clearInterval(controller_game_intervalId);
   G_view_loop(() => {
-    const gameData = G_model_getGameData();
-    G_view_renderStoppedSimulation(gameData);
+    //const gameData = G_model_getGameData();
+    //G_view_renderStoppedSimulation(gameData);
   });
   G_model_setSimulating(false);
   G_model_setSelectedSpeed('Normal');
@@ -318,7 +319,7 @@ const G_controller_endSimulation = gameData => {
       G_view_playSound('expl');
     }
     gameData.projectiles = [];
-    G_view_renderSimulation(gameData);
+    G_view_renderStoppedSimulation(gameData);
     G_controller_handleCollisions(gameData);
     const { x, y } = G_view_worldToPx(player.x, player.y);
     if (!player.dead) {
@@ -364,10 +365,12 @@ const G_controller_setLoading = v => {
   G_model_setLoading(v);
 };
 
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 let transitionTimeoutId = -1;
 const G_controller_centerOnPlayer = () => {
   const player = G_model_getMe(G_model_getGameData());
-  const { x, y } = G_view_worldToPx(player.x, player.y);
+  let { x, y } = G_view_worldToPx(player.x, player.y);
+  y += isSafari ? 500 : 0; //not sure what the deal is here, this hacks the screen to at least be in view though;
   const style = G_view_getElementById('cc').style;
   style.transition = 'transform 0.5s';
   G_panZoomObj.translateZoom({ x, y, scale: 0.65 });
@@ -467,7 +470,7 @@ const G_controller_setTarget = ev => {
     G_view_renderSimulation(G_model_getGameData());
   } else {
     G_view_renderGameUI(G_model_getGameData());
-    G_view_renderSimulation(G_model_getGameData());
+    G_view_renderStoppedSimulation(G_model_getGameData());
   }
 };
 
@@ -550,8 +553,8 @@ const G_controller_replayStopSimulatingRound = () => {
   const gameData = G_model_getGameData();
   clearInterval(controller_replay_intervalId);
   G_view_loop(() => {
-    const gameData = G_model_getGameData();
-    G_view_renderStoppedSimulation(gameData);
+    // const gameData = G_model_getGameData();
+    // G_view_renderStoppedSimulation(gameData);
   });
   G_model_setSimulating(false);
   if (gameData) {
@@ -563,7 +566,7 @@ const G_controller_replayStopSimulatingRound = () => {
       G_view_playSound('expl');
     }
     gameData.projectiles = [];
-    G_view_renderSimulation(gameData);
+    G_view_renderStoppedSimulation(gameData);
     G_controller_handleCollisions(gameData);
 
     const roundIndex = G_model_getReplayRoundIndex();

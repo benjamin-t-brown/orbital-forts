@@ -159,6 +159,10 @@ span {
   transition: left 0.25s, top 0.25s;
 }
 .game-elems {
+  /* for safari */
+  z-index: 1;
+  pointer-events: none;
+
   position: absolute;
   left: 0px;
   top: 0px;

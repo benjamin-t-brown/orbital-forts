@@ -60,7 +60,6 @@ function G_PanZoom(selector, opts) {
       if (newTrans.scale < minScale) newTrans.scale = minScale;
       if (newTrans.scale > maxScale) newTrans.scale = maxScale;
       if (!maxOrMinScale) {
-        applyTranslate(tranX, tranY);
         setTransformMatrix(newTrans);
         applyTranslate(-(tranX * dScale), -(tranY * dScale));
       }

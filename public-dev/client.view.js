@@ -163,6 +163,19 @@ const G_view_getColorStyles = color =>
     color
   )};`;
 
+const gradients = {};
+const view_getGradient = (x, y, n, x2, y2, scale, colorStart, colorStop) => {
+  const key = `${x},${y},${n},${x2},${y2},${scale},${colorStart},${colorStop}`;
+  if (!gradients[key]) {
+    const ctx = view_getCtx();
+    const grd = ctx.createRadialGradient(x, y, n, x2, y2, scale);
+    grd.addColorStop(0, colorStart);
+    grd.addColorStop(1, colorStop);
+    gradients[key] = grd;
+  }
+  return gradients[key];
+};
+
 const G_view_hideElement = id => {
   (typeof id === 'string'
     ? G_view_getElementById(id)
@@ -197,21 +210,28 @@ const G_view_loop = cb => {
   view_started = true;
 };
 
-const G_view_getScreenDimensions = () => {
+const G_view_getScreenDimensions = omitPosition => {
   const ctx = view_getCtx();
   const canvas = ctx.canvas;
-  const { left, top } = canvas.getBoundingClientRect();
-  return { left, top, width: canvas.width, height: canvas.height };
+  if (omitPosition) {
+    const { left, top } = canvas.getBoundingClientRect();
+    return { left, top, width: canvas.width, height: canvas.height };
+  } else {
+    return { left: 0, top: 0, width: canvas.width, height: canvas.height };
+  }
 };
 
 const G_view_setScreenDimensions = (width, height) => {
   const c = G_view_getElementById('c');
   c.width = width;
   c.height = height;
+  const cc = G_view_getElementById('cc');
+  cc.style.width = width + 'px';
+  cc.style.height = height + 'px';
 };
 
 const G_view_pxToWorld = (x, y) => {
-  const { width, height } = G_view_getScreenDimensions();
+  const { width, height } = G_view_getScreenDimensions(true);
   return {
     x: (x - width / 2) / G_SCALE,
     y: -(y - height / 2) / G_SCALE,
@@ -219,7 +239,7 @@ const G_view_pxToWorld = (x, y) => {
 };
 
 const G_view_worldToPx = (x, y) => {
-  const { width, height } = G_view_getScreenDimensions();
+  const { width, height } = G_view_getScreenDimensions(true);
   return {
     x: Math.round(x * G_SCALE + width / 2),
     y: Math.round(-y * G_SCALE + height / 2),
@@ -247,7 +267,7 @@ const G_view_renderSimulation = gameData => {
 
   G_view_drawPlanets(
     planets.map(id => G_getEntityFromEntMap(id, gameData)),
-    gameData
+    true
   );
 
   // render previous server states
@@ -312,7 +332,10 @@ const G_view_renderStoppedSimulation = gameData => {
   view_clearDisplay();
   view_updateGlobalFrameTime();
   G_view_drawPlayers(players.map(id => G_getEntityFromEntMap(id, gameData)));
-  G_view_drawPlanets(planets.map(id => G_getEntityFromEntMap(id, gameData)));
+  G_view_drawPlanets(
+    planets.map(id => G_getEntityFromEntMap(id, gameData)),
+    false
+  );
 
   for (let i in gameData.entMap) {
     const entity = gameData.entMap[i];
@@ -367,7 +390,7 @@ const G_view_drawPlayers = players => {
   }
 };
 
-const G_view_drawPlanets = bodies => {
+const G_view_drawPlanets = (bodies, renderAnim) => {
   const G_R_MIN = 120 / G_SCALE;
   const G_R_MAX = 840 / G_SCALE;
   for (let i = 0; i < bodies.length; i++) {
@@ -380,30 +403,31 @@ const G_view_drawPlanets = bodies => {
       G_R_MIN,
       G_R_MAX
     );
-    const ctx = view_getCtx();
-    const grd = ctx.createRadialGradient(
+    const grd = view_getGradient(
       px,
       py,
       20,
       px,
       py,
-      massGradientR * G_SCALE
+      massGradientR * G_SCALE,
+      '#0d0d0d',
+      'transparent'
     );
-    grd.addColorStop(0, '#0d0d0d');
-    grd.addColorStop(1, 'transparent');
     view_drawCircle(px, py, 800, grd);
   }
   for (let i = 0; i < bodies.length; i++) {
     const { px: x, py: y, r, color } = bodies[i];
     const { x: px, y: py } = G_view_worldToPx(x, y);
-    const pct = view_getFrameTimePercentage();
     view_drawCircle(px, py, r * G_SCALE, view_hexToRGBA(color, '0.9'));
-    view_drawCircle(
-      px,
-      py,
-      r * G_SCALE * (1 - pct),
-      G_view_getColor('dark', color)
-    );
+    if (renderAnim) {
+      const pct = view_getFrameTimePercentage();
+      view_drawCircle(
+        px,
+        py,
+        r * G_SCALE * (1 - pct),
+        G_view_getColor('dark', color)
+      );
+    }
   }
 };
 
@@ -411,17 +435,19 @@ const G_view_drawProjectiles = (bodies, gameData) => {
   for (let i = 0; i < bodies.length; i++) {
     const { meta, px: x, py: y, r } = bodies[i];
     const { x: px, y: py } = G_view_worldToPx(x, y);
-    view_drawCircle(
-      px,
-      py,
-      r * G_SCALE,
-      G_model_getPlayer(meta.player, gameData).color
-    );
-    view_drawCircleOutline(
-      px,
-      py,
-      r * G_SCALE,
-      G_view_getColor('light', G_model_getPlayer(meta.player, gameData).color)
-    );
+    if (meta.type !== G_action_move) {
+      view_drawCircle(
+        px,
+        py,
+        r * G_SCALE,
+        G_model_getPlayer(meta.player, gameData).color
+      );
+      view_drawCircleOutline(
+        px,
+        py,
+        r * G_SCALE,
+        G_view_getColor('light', G_model_getPlayer(meta.player, gameData).color)
+      );
+    }
   }
 };
