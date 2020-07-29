@@ -14,6 +14,9 @@ G_model_getColor
 G_model_getTargetLocation
 G_model_getRenderHistory
 G_view_renderSoundToggle
+G_view_wormholeCount
+G_view_renderMenuInfo
+G_controller_showMenu
 */
 
 let view_nowMs;
@@ -32,6 +35,8 @@ const G_view_init = () => {
   G_view_renderSoundToggle();
   G_view_getElementById('practice').disabled = false;
   G_view_getElementById('create-game').disabled = false;
+  G_view_renderMenuInfo();
+  G_controller_showMenu('menu');
 };
 
 function view_hexToRGBA(hex, alpha) {
@@ -265,10 +270,7 @@ const G_view_renderSimulation = gameData => {
   view_clearDisplay();
   view_updateGlobalFrameTime();
 
-  G_view_drawPlanets(
-    planets.map(id => G_getEntityFromEntMap(id, gameData)),
-    true
-  );
+  G_view_drawPlanets(planets.map(id => G_getEntityFromEntMap(id, gameData)));
 
   // render previous server states
   for (let i = 0; i < history.length; i++) {
@@ -303,14 +305,16 @@ const G_view_renderSimulation = gameData => {
   G_view_drawPlayers(players.map(id => G_getEntityFromEntMap(id, gameData)));
 
   // DEBUG: Draw shockwaves
-  // for (let i in gameData.entMap) {
-  //   const entity = gameData.entMap[i];
-  //   if (entity.type === G_res_shockwave) {
-  //     const { x, y, r } = entity;
-  //     const { x: px, y: py } = G_view_worldToPx(x, y);
-  //     view_drawCircle(px, py, r * G_SCALE, 'orange');
-  //   }
-  // }
+  if (G_DEBUG) {
+    for (let i in gameData.entMap) {
+      const entity = gameData.entMap[i];
+      if (entity.type === G_res_shockwave) {
+        const { x, y, r } = entity;
+        const { x: px, y: py } = G_view_worldToPx(x, y);
+        view_drawCircle(px, py, r * G_SCALE, 'orange');
+      }
+    }
+  }
 
   // DEBUG: Draw resource hit-circles
   if (G_DEBUG) {
@@ -390,7 +394,7 @@ const G_view_drawPlayers = players => {
   }
 };
 
-const G_view_drawPlanets = (bodies, renderAnim) => {
+const G_view_drawPlanets = bodies => {
   const G_R_MIN = 120 / G_SCALE;
   const G_R_MAX = 840 / G_SCALE;
   for (let i = 0; i < bodies.length; i++) {
@@ -419,15 +423,6 @@ const G_view_drawPlanets = (bodies, renderAnim) => {
     const { px: x, py: y, r, color } = bodies[i];
     const { x: px, y: py } = G_view_worldToPx(x, y);
     view_drawCircle(px, py, r * G_SCALE, view_hexToRGBA(color, '0.9'));
-    if (renderAnim) {
-      const pct = view_getFrameTimePercentage();
-      view_drawCircle(
-        px,
-        py,
-        r * G_SCALE * (1 - pct),
-        G_view_getColor('dark', color)
-      );
-    }
   }
 };
 

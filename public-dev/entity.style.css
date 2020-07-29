@@ -31,11 +31,13 @@
   border-radius: 30px;
   animation: 2s linear infinite spin;
   border: 5px solid #880;
+  user-select: none;
 }
 .res2 {
   position: absolute;
   text-align: center;
   pointer-events: none;
+  user-select: none;
   width: 200px;
 }
 .coin {
@@ -53,9 +55,13 @@
   background: rgb(82, 0, 0);
   border-color: rgb(128, 2, 2);
 }
-.boomerang {
+.wave {
   background: rgb(56, 121, 165);
   border-color: rgb(40, 59, 165);
+}
+.boomerang {
+  background: rgb(255, 0, 0);
+  border-color: rgb(200, 0, 0);
 }
 .wormhole {
   /* border-color: rgba(100, 100, 100, 1); */
@@ -99,16 +105,18 @@
 }
 @keyframes prox-pulse {
   0% {
-    box-shadow: 0 0 49px -5px;
+    box-shadow: 0 0 79px -5px;
   }
   50% {
     box-shadow: 0 0 36px -7px;
   }
   100% {
-    box-shadow: 0 0 49px -5px;
+    box-shadow: 0 0 79px -5px;
   }
 }
 .prox {
+  box-shadow: 0 0 49px -5px;
+  animation: unset;
   animation: 1s linear infinite prox-pulse;
   position: relative;
   background: #500;
@@ -118,11 +126,11 @@
 }
 .prox1-o {
   position: absolute;
-  animation: 2s linear infinite spinZ;
+  /* animation: 2s linear infinite spinZ; */
 }
 .prox2-o {
   position: absolute;
-  animation: 2.5s linear infinite reverse spinZ;
+  /* animation: 2.5s linear infinite reverse spinZ; */
 }
 .prox1 {
   width: 37px;

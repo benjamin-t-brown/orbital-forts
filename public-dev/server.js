@@ -166,9 +166,10 @@ const G_socket_removeUser = user => {
 };
 
 const server = {
-  [G_R_CREATE + '/:id/:userName/:isPractice']: G_socket_wrapTryCatch(
+  [G_R_CREATE +
+  '/:id/:userName/:initialMapIndex/:isPractice']: G_socket_wrapTryCatch(
     async (req, res) => {
-      let { id, userName, isPractice } = req.params;
+      let { id, userName, initialMapIndex, isPractice } = req.params;
       const user = G_socket_assertUser(id, req, res);
       if (!user) {
         return;
@@ -180,6 +181,10 @@ const server = {
       if (userName.length > 10) {
         res.send(G_socket_createMessageRest(null, 'Username too long.'));
         return;
+      }
+      initialMapIndex = parseInt(initialMapIndex);
+      if (!initialMapIndex || isNaN(initialMapIndex) || initialMapIndex < 0) {
+        initialMapIndex = 0;
       }
       userName = escape(userName);
       const game = G_user_getGame(user);
@@ -200,6 +205,7 @@ const server = {
       console.log('Create game', gameName, 'isPractice=' + isPractice);
       const g = G_Game(user, gameName);
       G_user_setGame(user, g);
+      await g.setMapIndex(initialMapIndex);
       if (isPractice === 'true') {
         await g.setPractice();
       }
@@ -374,6 +380,22 @@ const server = {
       'disconnect',
       G_socket_wrapTryCatch(() => {
         console.log('Disconnected: ' + socket.id);
+        G_socket_removeUser(user);
+      })
+    );
+
+    socket.on(
+      'error',
+      G_socket_wrapTryCatch(() => {
+        console.log('Error: ' + socket.id);
+        G_socket_removeUser(user);
+      })
+    );
+
+    socket.on(
+      'socket-error',
+      G_socket_wrapTryCatch(() => {
+        console.log('Error: ' + socket.id);
         G_socket_removeUser(user);
       })
     );

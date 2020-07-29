@@ -61,6 +61,7 @@ const G_action_shoot = 'Shoot';
 const G_action_spread = 'Spread Fire';
 const G_action_planetCracker = 'Planet Crkr.';
 const G_action_cluster = 'Cluster Bomb';
+const G_action_waveBomb = 'Wave Bomb';
 const G_action_clusterSpawn = 'Cluster Spawn'; // missile spawned when a cluster bomb explodes
 const G_action_boomerang = 'Boomerang';
 
@@ -71,6 +72,7 @@ const G_res_coin = 'coin';
 const G_res_spray = 'spread';
 const G_res_planetCracker = 'planet-cracker';
 const G_res_cluster = 'cluster';
+const G_res_waveBomb = 'wave';
 const G_res_wormhole = 'wormhole';
 const G_res_boomerang = 'boomerang';
 const G_res_proximityMine = 'prox';
@@ -101,6 +103,12 @@ const G_res_sprites = {
     offsetTop: 45,
     content: 'C',
   },
+  [G_res_waveBomb]: {
+    elem: 'div',
+    label: 'Wave Bomb',
+    offsetTop: 45,
+    content: 'W',
+  },
   [G_res_wormhole]: {
     elem: 'div',
     label: '',
@@ -118,16 +126,7 @@ const G_res_sprites = {
     elem: 'div',
     label: '',
     offsetTop: 25,
-    content: `
-<div class="prox2">!</div>
-<div class="prox1-o">
-  <div class="prox1">
-  </div>   
-</div>
-<div class="prox2-o">
-  <div class="prox1">
-  </div>   
-</div>`,
+    content: `<div class="prox2">!</div>`,
   },
 };
 // This maps all available actions with their costs
@@ -135,6 +134,7 @@ let G_actions = [
   [G_action_move, 50],
   [G_action_shoot, 0],
   [G_action_spread, 100],
+  [G_action_waveBomb, 125],
   [G_action_planetCracker, 150],
   [G_action_cluster, 200],
   [G_action_boomerang, 25],
@@ -150,46 +150,50 @@ const G_entity = {
   planetCracker: 'ent_res_planet_cracker',
   spray: 'ent_res_spread',
   cluster: 'ent_res_cluster',
+  wave: 'ent_res_wave',
   wormhole: 'ent_res_wormhole',
   boomerang: 'ent_res_boomerang',
   proximityMine: 'ent_res_prox',
   shockwave: 'ent_shockwave',
 };
 
+const isPlayer = o => {
+  return !!(o.color && o.name);
+};
+const isPlanet = o => {
+  return !!o.color;
+};
+const isProjectile = o => {
+  return o.meta && o.meta.proj;
+};
+const isCoin = o => {
+  return o.type === G_res_coin;
+};
+const isSpray = o => {
+  return o.type === G_res_spray;
+};
+const isPlanetCracker = o => {
+  return o.type === G_res_planetCracker;
+};
+const isCluster = o => {
+  return o.type === G_res_cluster;
+};
+const isWaveBomb = o => {
+  return o.type === G_res_waveBomb;
+};
+const isWormhole = o => {
+  return o.type === G_res_wormhole;
+};
+const isBoomerang = o => {
+  return o.type === G_res_boomerang;
+};
+const isProximityMine = o => {
+  return o.type === G_res_proximityMine;
+};
+const isShockwave = o => {
+  return o.type === G_res_shockwave;
+};
 const G_getEntityType = object => {
-  const isPlayer = o => {
-    return !!(o.color && object.name);
-  };
-  const isPlanet = o => {
-    return !!o.color;
-  };
-  const isProjectile = o => {
-    return o.meta && o.meta.proj;
-  };
-  const isCoin = o => {
-    return o.type === G_res_coin;
-  };
-  const isSpray = o => {
-    return o.type === G_res_spray;
-  };
-  const isPlanetCracker = o => {
-    return o.type === G_res_planetCracker;
-  };
-  const isCluster = o => {
-    return o.type === G_res_cluster;
-  };
-  const isWormhole = o => {
-    return o.type === G_res_wormhole;
-  };
-  const isBoomerang = o => {
-    return o.type === G_res_boomerang;
-  };
-  const isProximityMine = o => {
-    return o.type === G_res_proximityMine;
-  };
-  const isShockwave = o => {
-    return o.type === G_res_shockwave;
-  };
   switch (true) {
     case !object:
       return G_entity.nothing;
@@ -207,6 +211,8 @@ const G_getEntityType = object => {
       return G_entity.planet;
     case isCluster(object):
       return G_entity.cluster;
+    case isWaveBomb(object):
+      return G_entity.wave;
     case isWormhole(object):
       return G_entity.wormhole;
     case isBoomerang(object):
@@ -364,6 +370,7 @@ const G_Shockwave = (type, x, y, r, t, tStart) => {
     sent: false,
     update: function() {},
     satCircle,
+    meta: {},
   };
 };
 
@@ -439,7 +446,14 @@ const G_createProjectiles = (
         len += 30;
       }
       break;
-    case G_action_boomerang:
+    case G_action_waveBomb: {
+      len = 2000 * lifetimeMultiplier;
+      r = 12 / G_SCALE;
+      mass = 8;
+      ret.push(createProjectile(vx, vy));
+      break;
+    }
+    case G_action_boomerang: {
       const proj = createProjectile(vx, vy);
       G_body_setUpdateFunction(proj, p => {
         const hedRad = G_toRadians(
@@ -451,6 +465,7 @@ const G_createProjectiles = (
       });
       ret.push(proj);
       break;
+    }
     case G_action_move:
       len = 1000;
       r = 15 / G_SCALE;

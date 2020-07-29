@@ -32,7 +32,7 @@
         stroke-width="5"
       />
     </svg>
-    <div id="main" class="centered">
+    <div id="main" class="centered" style="margin-top: 10px">
       <div id="game" class="hidden">
         <div id="cc">
           <canvas id="c"></canvas>
@@ -77,15 +77,6 @@
         </div>
       </div>
       <div id="lobby" class="centered hidden menu">
-        <button class="back" onclick="events.leave()">Back</button>
-        <div id="lobby-title">Lobby</div>
-        <span class="menu-section">
-          <span>Map:</span>
-          <span id="map-select"></span>
-        </span>
-        <span id="player-count" style="margin:.5rem"></span>
-        <button id="start" onclick="events.start()">Start Game!</button>
-        <div id="players-lobby" class="menu-section"></div>
       </div>
       <div id="menu" class="centered menu">
         <div style="color:lightblue">Orbital Forts</div>
@@ -95,13 +86,18 @@
         </span>
         <button disabled id="create-game" onclick="events.create()" class="main-menu-button create-game">Create Game</button>
         <button id="view-last-replay2" onclick="events.viewLastReplay()" class="main-menu-button">View Last Replay</button>
+        <button id="to-help" onclick="events.toHelpMenu()" class="main-menu-button">Game Help</button>
         <span class="menu-section" style="padding: 0.5rem 0;">Join Game</span>
-        <div id="games" class="centered"></div>
+        <div id="games" class=""></div>
         <span class="practice-menu menu-section">
           <button id="practice" disabled onclick="events.create(true)">Practice</button>
           <span>Map:</span>
           <div id="map-select-practice"></div>
         </span>
+      </div>
+      <div id="info" class="centered hidden menu">
+        <button class="back" onclick="events.toMainMenu()">Back</button>
+        <div id="menu-info" class="menu-section"></div>
       </div>
       <div id="dialog" class="centered hidden menu">
         <div id="dialog-text"></div>
@@ -118,10 +114,11 @@
     <script src="/shared.lib.sat.js"></script>
     <script src="/client.lib.panzoom.js"></script>
     <script src="/client.lib.zzfx.js"></script>
+    <script src="/client.lib.superfine.js"></script>
     <script src="/client.model.js"></script>
     <script src="/client.view.js"></script>
-    <script src="/client.view.elements.js"></script>
-    <script src="/client.view.components.js"></script>
+    <script src="/client.view.entities.js"></script>
+    <script src="/client.view.ui.js"></script>
     <script src="/client.view.sound.js"></script>
     <script src="/client.controller.js"></script>
     <script src="/client.controller.collisions.js"></script>

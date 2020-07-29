@@ -1,3 +1,5 @@
+let zzfx, zzfxV, zzfxX;
+
 // ZzFX - Zuper Zmall Zound Zynth - Micro Edition
 // MIT License - Copyright 2019 Frank Force
 // https://github.com/KilledByAPixel/ZzFX
@@ -7,96 +9,98 @@
 // There is a small bit of optional code to improve compatibility.
 // Feel free to minify it further for your own needs!
 
-let zzfx, zzfxV, zzfxX;
-
 // ZzFXMicro - Zuper Zmall Zound Zynth
 zzfxV = 0.3; // volume
-zzfx = (
+(zzfx = (
   // play sound
-  I = 1,
-  J = 0.05,
-  g = 220,
-  f = 0,
-  h = 0,
-  m = 0.1,
-  n = 0,
-  K = 1,
-  r = 0,
-  z = 0,
-  t = 0,
-  A = 0,
-  u = 0,
-  B = 0,
-  v = 0,
-  L = 0,
+  t = 1,
+  a = 0.05,
+  n = 220,
   e = 0,
-  d = 2 * Math.PI,
-  b = 44100,
-  w = p => 2 * p * Math.random() - p,
-  C = p => (0 < p ? 1 : -1),
-  M = (r *= (500 * d) / b ** 2),
-  D = (g *= ((1 + w(J)) * d) / b),
-  N = (C(v) * d) / 4,
-  q = [],
-  E = 0,
-  F = 0,
+  f = 0,
+  h = 0.1,
+  M = 0,
+  r = 1,
+  z = 0,
+  o = 0,
+  i = 0,
+  s = 0,
+  u = 0,
+  x = 0,
   c = 0,
-  k = 1,
-  G = 0,
-  H = 0,
-  a = 0,
-  O,
-  l,
-  x,
-  y = zzfxX.createBufferSource()
+  d = 0,
+  X = 0,
+  b = 1,
+  m = 0,
+  l = 44100,
+  B = 99 + e * l,
+  C = f * l,
+  P = h * l,
+  g = m * l,
+  w = X * l,
+  A = 2 * Math.PI,
+  D = t => (0 < t ? 1 : -1),
+  I = B + g + C + P + w,
+  S = (z *= (500 * A) / l ** 2),
+  V = (n *= ((1 + 2 * a * Math.random() - a) * A) / l),
+  j = (D(c) * A) / 4,
+  k = 0,
+  p = 0,
+  q = 0,
+  v = 0,
+  y = 0,
+  E = 0,
+  F = 1,
+  G = [],
+  H = zzfxX.createBufferSource(),
+  J = zzfxX.createBuffer(1, I, l)
 ) => {
-  f = (99 + f * b) | 0;
-  h = (h * b) | 0;
-  m = (m * b) | 0;
-  e = (e * b) | 0;
-  z *= (500 * d) / b ** 3;
-  l = f + h + m + e;
-  v *= d / b;
-  t *= d / b;
-  A *= b;
-  for (u *= b; c < l; q[c++] = a)
-    ++H > 100 * L &&
-      ((H = 0),
-      (a = E * g * Math.sin(F * v - N)),
-      (a = n
-        ? 1 < n
-          ? 2 < n
-            ? 3 < n
-              ? Math.sin((a % d) ** 3)
-              : Math.max(Math.min(Math.tan(a), 1), -1)
-            : 1 - (((((2 * a) / d) % 2) + 2) % 2)
-          : 1 - 4 * Math.abs(Math.round(a / d) - a / d)
-        : Math.sin(a)),
-      (a = C(a) * Math.abs(a) ** K),
-      (a *=
-        I *
+  for (H.connect(zzfxX.destination); q < I; G[q++] = E)
+    ++y > 100 * d &&
+      ((y = 0),
+      (E = k * n * Math.sin((p * c * A) / l - j)),
+      (E =
+        D(
+          (E = M
+            ? 1 < M
+              ? 2 < M
+                ? 3 < M
+                  ? Math.sin((E % A) ** 3)
+                  : Math.max(Math.min(Math.tan(E), 1), -1)
+                : 1 - (((((2 * E) / A) % 2) + 2) % 2)
+              : 1 - 4 * Math.abs(Math.round(E / A) - E / A)
+            : Math.sin(E))
+        ) *
+        Math.abs(E) ** r *
+        t *
         zzfxV *
-        (c < f ? c / f : c < f + h ? 1 : c < l - e ? 1 - (c - f - h) / m : 0)),
-      (a = e
-        ? a / 2 + (e > c ? 0 : ((c < l - e ? 1 : (c - l) / e) * q[c - e]) / 2)
-        : a)),
-      (E += 1 + w(B)),
-      (F += 1 + w(B)),
-      (g += r += z),
-      k && ++k > A && ((D += t), (g += t), (k = 0)),
-      u && ++G > u && ((g = D), (r = M), (G = 1), (k = k || 1));
-  x = zzfxX.createBuffer(1, q.length, b);
-  x.getChannelData(0).set(q);
-  y.buffer = x;
-  y.connect(zzfxX.destination);
-  y.start();
-};
-//zzfxX = new AudioContext();
+        (q < B
+          ? q / B
+          : q < B + g
+          ? 1 - ((q - B) / g) * (1 - b)
+          : q < B + g + C
+          ? b
+          : q < I - w
+          ? ((I - q - w) / P) * b
+          : 0)),
+      (E = w
+        ? E / 2 +
+          (w > q ? 0 : ((q < I - w ? 1 : (q - I) / w) * G[(q - w) | 0]) / 2)
+        : E)),
+      (k += 1 - x + ((1e9 * (Math.sin(q) + 1)) % 2) * x),
+      (p += 1 - x + ((1e9 * (Math.sin(q) ** 2 + 1)) % 2) * x),
+      (n += z += (500 * o * A) / l ** 3),
+      F && ++F > s * l && ((n += (i * A) / l), (V += (i * A) / l), (F = 0)),
+      u && ++v > u * l && ((n = V), (z = S), (v = 1), (F = F || 1));
+  return J.getChannelData(0).set(G), (H.buffer = J), H.start(), H;
+}),
+  //(zzfxX = new AudioContext());
 
-// fix compatibility issues with old web audio (optional)
-// if this is used, you must remove the zzfxX=new AudioContext line above!
-zzfxX = new (window.AudioContext || webkitAudioContext)();
-zzfxX.z = zzfxX.createBufferSource;
-zzfxX.createBufferSource = (s = zzfxX.z()) => (
-  (s.start = s.start || (t => zzfxX.noteOn(t))), s
+  // fix compatibility issues with old web audio (optional)
+  (zzfxX = new (window.AudioContext || webkitAudioContext)());
+zzfxX.Z = zzfxX.createBufferSource;
+zzfxX.createBufferSource = (s = zzfxX.Z()) => (
+  (s.start = s.start || (t => zzfxX.noteOn(t))),
+  (s.stop = s.stop || (t => zzfxX.noteOff(t))),
+  s
 );

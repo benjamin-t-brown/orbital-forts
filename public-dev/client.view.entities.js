@@ -7,6 +7,8 @@ G_res_wormhole
 G_view_worldToPx
 G_view_setInnerHTML
 G_view_getElementById
+G_view_getColorStyles
+G_view_getColor
 */
 
 const view_wormholeColors = {
@@ -23,7 +25,7 @@ const view_wormholeColors = {
   10: 'green',
   11: 'green',
 };
-let view_wormholeCount = 0;
+let G_view_wormholeCount = 0;
 
 const view_createElement = (
   parent,
@@ -56,8 +58,8 @@ const view_createElement = (
   return div;
 };
 
-const G_view_createResource = res => {
-  const element = G_view_getElementById('res');
+const G_view_createResource = (res, element) => {
+  element = element || G_view_getElementById('res');
   const { x, y, id, type } = res;
   let { label, content, offsetTop, elem } = G_res_sprites[type] || {};
   const isWormhole = type === G_res_wormhole;
@@ -75,11 +77,11 @@ const G_view_createResource = res => {
     'res-' + id
   );
   if (isWormhole) {
-    const c = view_wormholeColors[view_wormholeCount];
+    const c = view_wormholeColors[G_view_wormholeCount];
     borderColor = c;
     backgroundColor = `radial-gradient(circle at 50% 120%, ${c}, ${c} 10%, rgb(75, 26, 63) 80%, #062745 100%)`;
     resourceElem.children[0].style.background = `radial-gradient(circle at 50% 0px, ${c}, rgba(255, 255, 255, 0) 58%)`;
-    view_wormholeCount++;
+    G_view_wormholeCount++;
   }
   if (borderColor) {
     resourceElem.style.color = borderColor;
@@ -92,13 +94,14 @@ const G_view_createResource = res => {
   parent.className = 'res2 centered';
   resourceElem.style.position = 'unset';
   element.appendChild(parent);
+  return parent;
 };
 
 const G_view_createResources = res => {
   const element = G_view_getElementById('res');
   G_view_setInnerHTML(element, '');
 
-  view_wormholeCount = 0;
+  G_view_wormholeCount = 0;
   for (let i = 0; i < res.length; i++) {
     G_view_createResource(res[i]);
   }
@@ -165,17 +168,35 @@ const G_view_createWormholeParticle = (x, y) => {
   }
 };
 
-const G_view_createShockwave = (x, y) => {
-  const id = x + ',' + y;
+const G_view_createShockwave = (x, y, color) => {
+  const id = 'shock' + x + ',' + y;
   if (G_view_getElementById(id)) {
     return;
   }
-  view_createElement(
-    G_view_getElementById('particles'),
-    `<div class="shockwave2"><div class="shockwave3"></div></div>`,
-    'shockwave',
-    x - 50 - 3,
-    y - 50 - 3,
-    id
-  );
+  if (color) {
+    const elem = view_createElement(
+      G_view_getElementById('particles'),
+      `<div class="shockwave2" style="${G_view_getColorStyles(
+        color
+      )};border-color:unset"><div class="shockwave3" style="${G_view_getColorStyles(
+        color
+      )};border-color:unset"></div></div>`,
+      'shockwave',
+      x - 50 - 3,
+      y - 50 - 3,
+      id
+    );
+    elem.style.color = G_view_getColor('', color);
+    elem.style['background-color'] = G_view_getColor('light', color);
+    elem.style['border-color'] = G_view_getColor('dark', color);
+  } else {
+    view_createElement(
+      G_view_getElementById('particles'),
+      `<div class="shockwave2"><div class="shockwave3"></div></div>`,
+      'shockwave',
+      x - 50 - 3,
+      y - 50 - 3,
+      id
+    );
+  }
 };

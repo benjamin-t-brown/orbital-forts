@@ -25,6 +25,7 @@ G_controller_replayStopSimulatingRound
 G_controller_endReplay
 G_controller_endSimulation
 G_controller_stopGame
+G_controller_leaveGame
 G_view_getElementById
 G_view_renderLobby
 G_view_renderGameUI
@@ -64,10 +65,14 @@ G_model_isGameOver
 G_model_setSoundEnabled
 G_model_isReplayingGame
 G_model_getAuxActionArgs
+G_model_isLoading
 */
 
 window.events = {
   async create(isPractice) {
+    if (G_model_isLoading()) {
+      return;
+    }
     G_view_playSound('button');
     G_controller_setUserName(
       G_view_getElementById('player-name-input').value.trim() || 'Player'
@@ -75,7 +80,7 @@ window.events = {
     const { result, err } = await G_client_sendRequest(
       G_R_CREATE,
       `${G_model_getUserId()}/${encodeURIComponent(G_model_getUserName()) ||
-        G_model_getUserId()}/${!!isPractice}`
+        G_model_getUserId()}/${G_model_getMapIndex()}/${!!isPractice}`
     );
     if (!err) {
       const { id, name } = result;
@@ -93,6 +98,9 @@ window.events = {
     }
   },
   async join(gameId) {
+    if (G_model_isLoading()) {
+      return;
+    }
     G_view_playSound('button');
     G_controller_setUserName(
       G_view_getElementById('player-name-input').value.trim() || 'Player'
@@ -116,16 +124,12 @@ window.events = {
   },
   async leave() {
     G_view_playSound('button');
-    try {
-      await G_client_sendRequest(G_R_LEAVE, `${G_model_getUserId()}`);
-    } catch (e) {
-      console.warn('error leaving game', e);
-    }
-    G_model_setGameId(null);
-    G_model_setLobbyId(null);
-    G_controller_showMenu('menu');
+    G_controller_leaveGame();
   },
   async start() {
+    if (G_model_isLoading()) {
+      return;
+    }
     await G_client_sendRequest(
       G_R_START,
       `${G_model_getUserId()}/${G_model_getMapIndex()}`
@@ -191,6 +195,12 @@ window.events = {
   },
   centerCam() {
     G_controller_centerOnPlayer();
+  },
+  toMainMenu() {
+    G_controller_showMenu('menu');
+  },
+  toHelpMenu() {
+    G_controller_showMenu('info');
   },
   async returnToMenu() {
     G_view_playSound('button');

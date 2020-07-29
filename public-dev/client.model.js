@@ -45,7 +45,7 @@ let model_soundMultiplier = 1.0;
 let model_auxLifetimeMultiplier = 1;
 let model_boomerangAngle = 0;
 
-let model_menuIds = ['dialog', 'game', 'lobby', 'menu'];
+let model_menuIds = ['dialog', 'game', 'lobby', 'menu', 'info'];
 
 const G_model_isPlayer = obj => {
   return !!(obj.color && obj.target);
@@ -135,7 +135,10 @@ const G_model_setGameData = v => (model_gameData = v);
 const G_model_setGameMetadata = v => (model_gameMetadata = v);
 const G_model_setMenuIds = v => (model_menuIds = v);
 const G_model_setUserName = v => (model_userName = v);
-const G_model_setMapIndex = v => (model_mapIndex = parseInt(v));
+const G_model_setMapIndex = v => {
+  localStorage.setItem(G_model_getLocalStorageKey() + '_map', v);
+  model_mapIndex = parseInt(v);
+};
 const G_model_setMaps = v => (model_maps = v);
 const G_model_setLastReplay = v => {
   model_lastReplay = v;
@@ -175,4 +178,12 @@ const storageSoundEnabled = localStorage.getItem(
 if (storageSoundEnabled !== null) {
   console.log('loaded sound settings from local storage');
   G_model_setSoundEnabled(storageSoundEnabled === 'true');
+}
+
+const lastMapIndex = localStorage.getItem(
+  G_model_getLocalStorageKey() + '_map'
+);
+if (storageSoundEnabled !== null) {
+  console.log('loaded previous map selected from local storage');
+  G_model_setMapIndex(parseInt(lastMapIndex));
 }

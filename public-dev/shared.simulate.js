@@ -7,12 +7,8 @@ G_FRAME_MS
 G_Body
 G_entity
 G_res_proximityMine
+G_res_shockwave
 G_body_setAcceleration
-G_action_spread
-G_action_planetCracker
-G_action_cluster
-G_action_clusterSpawn
-G_action_boomerang
 G_action_move
 G_getEntityFromEntMap
 G_applyGravity
@@ -132,7 +128,6 @@ const G_applyShockwaves = (entities, gameData) => {
   for (let j = 0; j < shockwaves.length; j++) {
     const shockwave = shockwaves[j];
     if (gameData.tss - shockwave.tStart > shockwave.t) {
-      console.log('APPLY SHOCKWAVE!', shockwave);
       gameData.shockwaves.splice(j, 1);
       for (let i = 0; i < entities.length; i++) {
         const entity = entities[i];
@@ -149,25 +144,25 @@ const G_applyShockwaves = (entities, gameData) => {
   }
 };
 
+const movePlayer = (playerId, x, y, gameData) => {
+  const player = G_getEntityFromEntMap(playerId, gameData);
+  if (isInBounds(x, y, player.r, player.r, gameData)) {
+    player.x = x;
+    player.y = y;
+  }
+};
+
+const isInBounds = (x, y, width, height, gameData) => {
+  const { width: worldWidth, height: worldHeight } = gameData;
+  return (
+    x - width >= -worldWidth &&
+    x + width <= worldWidth &&
+    y - height >= -worldHeight &&
+    y + height <= worldHeight
+  );
+};
+
 const G_simulate = (gameData, { nowDt }) => {
-  const isInBounds = (x, y, width, height, gameData) => {
-    const { width: worldWidth, height: worldHeight } = gameData;
-    return (
-      x - width >= -worldWidth &&
-      x + width <= worldWidth &&
-      y - height >= -worldHeight &&
-      y + height <= worldHeight
-    );
-  };
-
-  const movePlayer = (playerId, x, y, gameData) => {
-    const player = G_getEntityFromEntMap(playerId, gameData);
-    if (isInBounds(x, y, player.r, player.r, gameData)) {
-      player.x = x;
-      player.y = y;
-    }
-  };
-
   let currentGameData = gameData;
   let { projectiles, planets, players, resources, fields } = currentGameData;
   let collisionCallbacks = [];
@@ -180,8 +175,7 @@ const G_simulate = (gameData, { nowDt }) => {
       resources
         .filter(
           id =>
-            G_getEntityFromEntMap(id, currentGameData).type ===
-            G_res_proximityMine
+            G_getEntityFromEntMap(id, currentGameData).type !== G_res_shockwave
         )
         .map(id => G_getEntityFromEntMap(id, currentGameData))
     );
@@ -206,7 +200,6 @@ const G_simulate = (gameData, { nowDt }) => {
     if (col[2]) {
       continue;
     }
-    console.log('got a col', col);
     col[2] = true;
     const { remove, cb } = G_handleCollision(col, gameData);
     if (remove) {

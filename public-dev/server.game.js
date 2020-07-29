@@ -117,7 +117,6 @@ const G_Game = (owner, name) => {
       let actions = {};
       if (gameObj.mode === G_MODES.standard) {
         for (let j in G_actions) {
-          // actions[G_actions[j][0]] = j <= 1 ? 99 : 5;
           actions[G_actions[j][0]] = j <= 1 ? 99 : 0;
         }
       }

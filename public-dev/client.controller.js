@@ -4,6 +4,7 @@ G_SCALE
 G_AU
 G_FRAME_MS
 G_GAME_TIME_BUFFER_MS
+G_R_LEAVE
 G_PanZoom
 G_applyGravity
 G_applyAction
@@ -42,6 +43,7 @@ G_view_createWormholeParticle
 G_view_createResource
 G_view_renderReplayUI
 G_view_playSound
+G_view_renderMenuInfo
 G_model_getLocalStorageKey
 G_model_isGamePlaying
 G_model_isPlayer
@@ -398,6 +400,17 @@ const G_controller_showMenu = (menuId, cb) => {
     }
     elem.style.display = s;
   });
+  if (menuId === 'info') {
+    console.log('RENDER INFO');
+    G_view_renderMenuInfo();
+  }
+  // if (menuId === 'menu') {
+  //   G_view_getElementById('main').style['justify-content'] = 'unset';
+  //   document.body.style['overflow-y'] = 'auto';
+  // } else {
+  //   G_view_getElementById('main').style['justify-content'] = 'center';
+  //   document.body.style['overflow-y'] = 'hidden';
+  // }
 };
 
 const G_controller_showDialog = text => {
@@ -619,4 +632,15 @@ const G_controller_saveHistory = gameData => {
   if (history.length > 500) {
     history.shift();
   }
+};
+
+const G_controller_leaveGame = async () => {
+  try {
+    await G_client_sendRequest(G_R_LEAVE, `${G_model_getUserId()}`);
+  } catch (e) {
+    console.warn('error leaving game', e);
+  }
+  G_model_setGameId(null);
+  G_model_setLobbyId(null);
+  G_controller_showMenu('menu');
 };

@@ -3,9 +3,9 @@ body {
   margin: 0;
   color: #fff;
   background-color: #111;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: hidden;
   line-height: 1.5;
-  perspective: 340px;
   touch-action: manipulation;
 }
 button {
@@ -23,7 +23,7 @@ button:hover {
   background-color: #808080;
 }
 button:active {
-  transform: translateY(1px);
+  transform: scale(0.95);
 }
 button:disabled {
   color: #999;
@@ -42,6 +42,9 @@ select {
 }
 span {
   font-size: 12px;
+}
+#c {
+  z-index: 0;
 }
 #cc {
   position: relative;
@@ -157,6 +160,7 @@ span {
   animation: 2s linear infinite target-spin;
   pointer-events: none;
   transition: left 0.25s, top 0.25s;
+  z-index: 4;
 }
 .game-elems {
   /* for safari */
@@ -282,6 +286,42 @@ span {
   pointer-events: all;
   text-align: center;
   width: 200px;
+}
+
+#res {
+  z-index: 1;
+}
+
+#players {
+  z-index: 2;
+}
+
+#particles {
+  z-index: 3;
+}
+
+#games {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-height: 250px;
+  overflow: auto;
+}
+
+.menu-info-item {
+  position: relative;
+  height: 90px;
+}
+.menu-info-text {
+  font-size: 12px;
+  text-align: left;
+  margin-left: 103px;
+  height: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  padding: 0px 15px;
 }
 
 @media only screen and (max-width: 421px) {

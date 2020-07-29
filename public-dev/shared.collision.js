@@ -7,6 +7,7 @@ G_action_spread
 G_action_planetCracker
 G_action_cluster
 G_action_clusterSpawn
+G_action_waveBomb
 G_action_move
 G_action_boomerang
 G_entity
@@ -30,7 +31,7 @@ const removeResource = (id, gameData) => {
   }
 };
 
-const createShockwaveCb = (x, y, gameData) => {
+const createShockwaveCb = (x, y, player, gameData) => {
   return () => {
     const shockwave = G_Shockwave(
       G_res_shockwave,
@@ -40,6 +41,10 @@ const createShockwaveCb = (x, y, gameData) => {
       250,
       gameData.tss
     );
+    shockwave.meta = {
+      player: player && player.id,
+      type: G_entity.shockwave,
+    };
     gameData.entMap[shockwave.id] = shockwave;
     gameData.shockwaves.push(shockwave.id);
   };
@@ -65,10 +70,10 @@ const createClusterSpawnCb = (projectile, player, gameData) => {
 };
 
 const G_handleCollision = (c, gameData) => {
-  const [projectileId, otherId] = c;
-  const projectile = G_getEntityFromEntMap(projectileId, gameData);
+  const [entityId, otherId] = c;
+  const projectile = G_getEntityFromEntMap(entityId, gameData);
   if (!projectile) {
-    console.warn('no projectile exists with id', projectileId);
+    console.warn('no projectile or shockwave exists with id', entityId);
     return;
   }
   const other = G_getEntityFromEntMap(otherId, gameData);
@@ -79,8 +84,10 @@ const G_handleCollision = (c, gameData) => {
   let player;
   let type;
   if (projectile.meta) {
-    player = G_getEntityFromEntMap(projectile.meta.player, gameData);
     type = projectile.meta.type;
+    if (projectile.meta.player) {
+      player = G_getEntityFromEntMap(projectile.meta.player, gameData);
+    }
   }
 
   return G_handleCollisionStandard({
@@ -101,21 +108,24 @@ const G_handleCollisionStandard = ({
 }) => {
   const projectileEntityType = G_getEntityType(projectile);
   const otherEntityType = G_getEntityType(other);
-
-  if (projectileEntityType === G_entity.shockwave) {
+  if (projectileEntityType === G_entity.shockwave && !player) {
     switch (otherEntityType) {
       case G_entity.player: {
-        console.log('COL shockwave with player', projectile, other);
+        console.log('COL NEUTRAL shockwave with player', projectile, other);
         const player2 = G_getEntityFromEntMap(other.id, gameData);
         console.log('player died from a shockwave');
         player2.dead = true;
         break;
       }
       case G_entity.proximityMine: {
-        console.log('COL shockwave with proximity mine', projectile, other);
+        console.log(
+          'COL NEUTRAL shockwave with proximity mine',
+          projectile,
+          other
+        );
         removeResource(other.id, gameData);
         return {
-          cb: createShockwaveCb(other.x, other.y, gameData),
+          cb: createShockwaveCb(other.x, other.y, null, gameData),
         };
       }
     }
@@ -158,6 +168,11 @@ const G_handleCollisionStandard = ({
           cb: createClusterSpawnCb(projectile, player, gameData),
         };
       }
+      if (type === G_action_waveBomb) {
+        return {
+          cb: createShockwaveCb(other.x, other.y, player, gameData),
+        };
+      }
       break;
     // if a projectile hits a coin, add that coin's funds the firing player and remove the coin
     case G_entity.coin:
@@ -188,6 +203,11 @@ const G_handleCollisionStandard = ({
       player.actions[G_action_boomerang] += 2;
       removeResource(other.id, gameData);
       break;
+    case G_entity.wave:
+      console.log('COL with wave bomb', projectile, other);
+      player.actions[G_action_waveBomb] += 2;
+      removeResource(other.id, gameData);
+      break;
     // if a projectile hits a planet, it explodes.  If that projectile was a "Move", then the player is dead
     // if the projectile is a planet cracker, then destroy the planet
     case G_entity.planet:
@@ -202,6 +222,10 @@ const G_handleCollisionStandard = ({
       } else if (type === G_action_cluster) {
         return {
           cb: createClusterSpawnCb(projectile, player, gameData),
+        };
+      } else if (type === G_action_waveBomb) {
+        return {
+          cb: createShockwaveCb(other.x, other.y, player, gameData),
         };
       }
       break;
@@ -231,12 +255,16 @@ const G_handleCollisionStandard = ({
         player.dead = true;
       }
       return {
-        cb: createShockwaveCb(other.x, other.y, gameData),
+        cb: createShockwaveCb(other.x, other.y, null, gameData),
       };
     case G_entity.nothing:
       if (type === G_action_cluster) {
         return {
           cb: createClusterSpawnCb(projectile, player, gameData),
+        };
+      } else if (type === G_action_waveBomb) {
+        return {
+          cb: createShockwaveCb(projectile.px, projectile.py, player, gameData),
         };
       }
   }

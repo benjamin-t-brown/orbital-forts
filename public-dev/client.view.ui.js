@@ -3,9 +3,17 @@ global
 G_SPEEDS
 G_actions
 G_action_cluster
+G_action_waveBomb
 G_action_boomerang
 G_getActionCost
 G_getSpeedCost
+G_res_coin
+G_res_spray
+G_res_cluster
+G_res_waveBomb
+G_res_planetCracker
+G_res_wormhole
+G_res_proximityMine
 G_view_none
 G_view_block
 G_view_innerHTML
@@ -16,6 +24,8 @@ G_view_getColor
 G_view_getColorStyles
 G_view_showElement
 G_view_hideElement
+G_view_createResource
+G_view_wormholeCount
 G_model_getMe
 G_model_isLoading
 G_model_isGameOver
@@ -38,6 +48,10 @@ G_model_setAuxLifetimeMultiplier
 G_model_getBoomerangAngle
 G_model_setBoomerangAngle
 G_model_isSoundEnabled
+G_superfine_h
+G_superfine_text
+G_superfine_patch
+events
 */
 
 const G_view_renderGameUI = gameData => {
@@ -232,47 +246,98 @@ const G_view_renderGameList = games => {
     );
   }
 
-  G_view_setInnerHTML(
-    G_view_getElementById('map-select-practice'),
-    view_renderMapSelect({ ownerId: G_model_getUserId() }, 'menu-map-select')
-  );
+  const mapSelectPractice = G_view_getElementById('map-select-practice');
+  if (mapSelectPractice && mapSelectPractice.parentElement) {
+    G_superfine_patch(
+      mapSelectPractice,
+      view_createMapSelect({ ownerId: G_model_getUserId() }, 'menu-map-select')
+    );
+  }
 };
 
 const G_view_renderLobby = lobbyData => {
   const { players } = lobbyData;
-  const playersList = G_view_getElementById('players-lobby');
-  G_view_setInnerHTML(playersList, '');
-  for (let i = 0; i < players.length; i++) {
-    const { id, userName } = players[i];
-    let ind = i + 1;
-    playersList[G_view_innerHTML] += `<div class="lobby-player">${ind}. ${
-      id === G_model_getUserId()
-        ? `<a class="lobby-name">${userName}</a>`
-        : userName
-    }</div>`;
-  }
-
-  const isOwner = players[0].id === G_model_getUserId();
   const canStart = players.length > 1 && players.length <= 4;
-  const mapSelect = G_view_getElementById('map-select');
-  mapSelect.parentElement.style.padding = isOwner ? '' : '0.5rem 0';
-  G_view_setInnerHTML(
-    mapSelect,
-    view_renderMapSelect(lobbyData, 'lobby-map-select')
+  const isOwner = players[0].id === G_model_getUserId();
+
+  G_superfine_patch(
+    G_view_getElementById('lobby'),
+    G_superfine_h('div', {}, [
+      G_superfine_h(
+        'button',
+        {
+          className: 'back',
+          onclick: events.leave,
+        },
+        G_superfine_text('Back')
+      ),
+      G_superfine_h(
+        'div',
+        {
+          id: 'lobby-title',
+        },
+        G_superfine_text(G_model_getGameName())
+      ),
+      G_superfine_h(
+        'span',
+        {
+          className: 'menu-section',
+        },
+        [
+          G_superfine_h('span', {}, G_superfine_text('Map: ')),
+          G_superfine_h(
+            'span',
+            { id: 'map-select' },
+            view_createMapSelect(lobbyData, 'lobby-map-select')
+          ),
+        ]
+      ),
+      G_superfine_h('span', { id: 'player-count', style: 'margin:.5rem' }, [
+        G_superfine_h(
+          'a',
+          {
+            style: `color:${canStart ? '#12a012' : 'red'}`,
+          },
+          G_superfine_text(players.length + ' of 4')
+        ),
+        G_superfine_text(
+          ` joined${canStart ? '.' : ' (at least 2 required to start).'}`
+        ),
+      ]),
+      G_superfine_h(
+        'button',
+        {
+          id: 'start',
+          onclick: events.start,
+          disabled: !canStart,
+          style: isOwner ? '' : 'display: none',
+        },
+        G_superfine_text('Start Game!')
+      ),
+      G_superfine_h(
+        'div',
+        {
+          id: 'players-lobby',
+          className: 'menu-section',
+        },
+        players.map(({ id, userName }, i) => {
+          return G_superfine_h(
+            'div',
+            {
+              className: 'lobby-player',
+            },
+            id === G_model_getUserId()
+              ? G_superfine_h(
+                  'a',
+                  { className: 'lobby-name' },
+                  G_superfine_text(i + 1 + '. ' + userName)
+                )
+              : G_superfine_text(i + 1 + '. ' + userName)
+          );
+        })
+      ),
+    ])
   );
-  G_view_setInnerHTML(
-    G_view_getElementById('lobby-title'),
-    G_model_getGameName()
-  );
-  G_view_setInnerHTML(
-    G_view_getElementById('player-count'),
-    `<a style="color:${canStart ? '#12a012' : 'red'}">${
-      players.length
-    } of 4</a> joined (at least 2 required to start)`
-  );
-  const start = G_view_getElementById('start');
-  start.style.display = isOwner ? G_view_block : G_view_none;
-  start.disabled = canStart ? false : true;
 };
 
 const view_renderActionButton = (label, helperText, actionName, animated) => {
@@ -288,21 +353,46 @@ style="${style};width:80%;margin:2px;animation:${
 </div>`;
 };
 
-const view_renderMapSelect = (lobbyData, id) => {
+const view_createMapSelect = (lobbyData, id) => {
   const isOwner = G_model_getUserId() === lobbyData.ownerId;
   const currentMapIndex = isOwner ? G_model_getMapIndex() : lobbyData.mapIndex;
   const maps = G_model_getMaps();
-  const mapName =
+  const currentMapName =
     currentMapIndex > -1 && currentMapIndex < maps.length
       ? maps[currentMapIndex].name
       : 'Custom Map';
-  const options = G_model_getMaps().reduce((prev, curr, i) => {
-    const selected = currentMapIndex === i ? 'selected' : '';
-    return prev + `<option ${selected} value=${i}>${curr.name}</option>`;
-  }, '');
-  return isOwner
-    ? `<select id="${id}" value="${currentMapIndex}" onchange="events.setMapIndex(this.id)">${options}</select>`
-    : `<span style="color:lightblue;">${mapName}</span>`;
+
+  if (isOwner) {
+    return G_superfine_h(
+      'select',
+      {
+        id,
+        value: currentMapIndex,
+        onchange: function(ev) {
+          events.setMapIndex(ev.target.id);
+        },
+      },
+      G_model_getMaps().map((map, i) => {
+        const selected = currentMapIndex === i ? 'selected' : '';
+        return G_superfine_h(
+          'option',
+          {
+            value: i,
+            selected,
+          },
+          G_superfine_text(map.name)
+        );
+      })
+    );
+  } else {
+    return G_superfine_h(
+      'span',
+      {
+        style: 'color: lightblue',
+      },
+      G_superfine_text(currentMapName)
+    );
+  }
 };
 
 const G_view_renderReplayUI = (replay, gameData) => {
@@ -374,12 +464,42 @@ const G_view_auxControls = {
       const renderLabel = value => {
         G_view_setInnerHTML(
           G_view_getElementById('controls-slider-input-label'),
-          `Lifetime: x${value}`
+          `Lifetime: ${value * 2}s`
         );
       };
       input.onchange = ev => {
         G_model_setAuxLifetimeMultiplier(ev.target.value);
         G_view_auxControls[G_action_cluster].render();
+      };
+      input.oninput = ev => {
+        renderLabel(ev.target.value);
+      };
+      G_view_getElementById('controls-slider').style.display = G_view_block;
+      renderLabel(value);
+    },
+    getArgs: () => {
+      return {
+        lifetimeMultiplier: G_model_getAuxLifetimeMultiplier(),
+      };
+    },
+  },
+  [G_action_waveBomb]: {
+    render: () => {
+      const value = G_model_getAuxLifetimeMultiplier();
+      const input = G_view_getElementById('controls-slider-input');
+      input.value = value;
+      input.min = 0.25;
+      input.max = 2;
+      input.step = 0.25;
+      const renderLabel = value => {
+        G_view_setInnerHTML(
+          G_view_getElementById('controls-slider-input-label'),
+          `Lifetime: ${value * 2}s`
+        );
+      };
+      input.onchange = ev => {
+        G_model_setAuxLifetimeMultiplier(ev.target.value);
+        G_view_auxControls[G_action_waveBomb].render();
       };
       input.oninput = ev => {
         renderLabel(ev.target.value);
@@ -444,4 +564,74 @@ const G_view_renderAuxControls = () => {
   } else {
     // G_view_auxControls[G_action_cluster].render();
   }
+};
+
+const G_view_createInfoElem = (elemType, description) => {
+  const parent = document.createElement('div');
+  parent.className = 'menu-info-item';
+  const coin = G_view_createResource(
+    {
+      id: 'info-' + elemType,
+      x: 0,
+      y: 0,
+      type: elemType,
+    },
+    parent
+  );
+  coin.style.left = -45;
+  coin.style.top = 20;
+  coin.style['font-size'] = 0;
+  const descriptionDiv = document.createElement('div');
+  descriptionDiv.className = 'menu-info-text';
+  G_view_setInnerHTML(descriptionDiv, description);
+  parent.appendChild(descriptionDiv);
+  return parent;
+};
+
+const G_view_renderMenuInfo = () => {
+  const elem = G_view_getElementById('menu-info');
+  G_view_wormholeCount = 0; // eslint-disable-line
+  G_view_setInnerHTML(elem, '');
+  elem.appendChild(
+    G_view_createInfoElem(
+      G_res_coin,
+      'Shoot coins to gain funds for more powerful weapons.'
+    )
+  );
+  elem.appendChild(
+    G_view_createInfoElem(
+      G_res_spray,
+      'The Spread Fire missile shoots three projectiles at a slight angle.'
+    )
+  );
+  elem.appendChild(
+    G_view_createInfoElem(
+      G_res_cluster,
+      'The Cluster Bomb explodes into a flower of missiles.'
+    )
+  );
+  elem.appendChild(
+    G_view_createInfoElem(
+      G_res_waveBomb,
+      'The Wave Bomb explodes in a shockwave.'
+    )
+  );
+  elem.appendChild(
+    G_view_createInfoElem(
+      G_res_planetCracker,
+      'The Planet Cracker can destroy a planet.'
+    )
+  );
+  elem.appendChild(
+    G_view_createInfoElem(
+      G_res_wormhole,
+      'Wormholes teleport projectiles to the other wormhole of corresponding color.'
+    )
+  );
+  elem.appendChild(
+    G_view_createInfoElem(
+      G_res_proximityMine,
+      'Proximity mines explode with a shockwave that can damage players or detonate other mines.'
+    )
+  );
 };

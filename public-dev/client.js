@@ -30,6 +30,7 @@ G_controller_endSimulation
 G_controller_finishGame
 G_controller_init
 G_controller_showErrorMessage
+G_controller_leaveGame
 G_model_getKey
 G_model_getBroadcastHistory
 G_model_getGameData
@@ -56,11 +57,11 @@ const G_client_sendRequest = async (type, arg, arg2) => {
       key: G_model_getKey(),
     },
   });
+  G_model_setLoading(false);
   const json = await result.json();
   if (json[1]) {
     throw new Error('[FETCH-ERROR] ' + json[1]);
   }
-  G_model_setLoading(false);
   console.log('fetch', type, arg, json);
   return { result: json[0], err: json[1] };
 };
@@ -135,12 +136,14 @@ const G_client_sendRequest = async (type, arg, arg2) => {
     socket.on('connect', () => {
       console.log('connected');
     });
-    socket.on('disconnect', e => {
+    socket.on('disconnect', async e => {
       console.warn('disconnect', e);
+      await G_controller_leaveGame();
       G_controller_showErrorMessage('You disconnected from the game server!');
     });
-    socket.on('error', e => {
+    socket.on('error', async e => {
       console.error('socket-error', e);
+      await G_controller_leaveGame();
       G_controller_showErrorMessage(
         'An error occurred with the connection to the game server!'
       );
