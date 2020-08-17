@@ -372,7 +372,7 @@ let transitionTimeoutId = -1;
 const G_controller_centerOnPlayer = () => {
   const player = G_model_getMe(G_model_getGameData());
   let { x, y } = G_view_worldToPx(player.x, player.y);
-  y += isSafari ? 500 : 0; //not sure what the deal is here, this hacks the screen to at least be in view though;
+  y += isSafari ? window.innerHeight * 0.65 : 0; //not sure what the deal is here, this hacks the screen to at least be in view though;
   const style = G_view_getElementById('cc').style;
   style.transition = 'transform 0.5s';
   G_panZoomObj.translateZoom({ x, y, scale: 0.65 });
@@ -401,7 +401,6 @@ const G_controller_showMenu = (menuId, cb) => {
     elem.style.display = s;
   });
   if (menuId === 'info') {
-    console.log('RENDER INFO');
     G_view_renderMenuInfo();
   }
   // if (menuId === 'menu') {

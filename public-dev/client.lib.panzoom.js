@@ -13,31 +13,64 @@ function G_PanZoom(selector, opts) {
     let oldX = 0,
       oldY = 0;
     let touchDist = 0;
-    ele.style.transform = 'matrix(1, 0, 0, 1, 0, 0)';
+    // ele.style.transform = 'matrix(1, 0, 0, 1, 0, 0)';
+    ele.style.transform = 'transform(0px, 0px) scale(1)';
 
     const getTransformMatrix = () => {
-      let trans = ele.style.transform;
-      let start = trans.indexOf('(') + 1;
-      let end = trans.indexOf(')');
-      let matrix = trans.slice(start, end).split(',');
+      // let trans = ele.style.transform;
+      // let start = trans.indexOf('(') + 1;
+      // let end = trans.indexOf(')');
+      // let matrix = trans.slice(start, end).split(',');
+      // return {
+      //   scale: +matrix[0],
+      //   transX: +matrix[4],
+      //   transY: +matrix[5],
+      // };
+      // return {
+      //   scale: +matrix[0],
+      //   transX: +matrix[12],
+      //   transY: +matrix[13],
+      // };
+      const transform = ele.style.transform;
+      if (!transform) {
+        return {
+          scale: 1,
+          transX: 0,
+          transY: 0,
+        };
+      }
+      console.log('TRANSFORM', transform, transform.match(/scale\((.*?)\)/)[1]);
+
+      const scale = parseFloat(transform.match(/scale\((.*)\)/)[1]);
+      const x = parseFloat(
+        transform.match(/translate\((.*?)\)/)[1].split(',')[0]
+      );
+      const y = parseFloat(
+        transform.match(/translate\((.*?)\)/)[1].split(',')[1]
+      );
+      console.log('STUFF', scale, x, y);
       return {
-        scale: +matrix[0],
-        transX: +matrix[4],
-        transY: +matrix[5],
+        scale,
+        transX: x,
+        transY: y,
       };
     };
 
     const setTransformMatrix = o => {
-      ele.style.transform =
-        'matrix(' +
-        o.scale +
-        ', 0, 0, ' +
-        o.scale +
-        ', ' +
-        o.transX +
-        ', ' +
-        o.transY +
-        ')';
+      // ele.style.transform =
+      //   'matrix(' +
+      //   o.scale +
+      //   ', 0, 0, ' +
+      //   o.scale +
+      //   ', ' +
+      //   o.transX +
+      //   ', ' +
+      //   o.transY +
+      //   ')';
+      // ele.style.transform = `matrix3d(${o.scale}, 0, 0, 0, 0, ${o.scale}, 0, 0, 0, 0, 1, 0, ${o.transX}, ${o.transY}, 0, 1)`;
+      const transform = `translate(${o.transX}px, ${o.transY}px) scale(${o.scale})`;
+      console.log('SET TRANSFORM', transform);
+      ele.style.transform = transform;
     };
 
     const applyTranslate = (dx, dy) => {

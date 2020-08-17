@@ -252,6 +252,7 @@ span {
   background-color: #225;
   border: 1px solid #55d;
   width: 80%;
+  min-height: 32px;
 }
 .join-button:hover {
   background-color: #336;
@@ -322,6 +323,13 @@ span {
   display: flex;
   align-items: center;
   padding: 0px 15px;
+}
+
+@media only screen and (max-height: 800px) {
+  .menu-section {
+    max-height: 400px;
+    overflow-y: auto;
+  }
 }
 
 @media only screen and (max-width: 421px) {
