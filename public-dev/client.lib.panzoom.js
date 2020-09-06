@@ -39,7 +39,6 @@ function G_PanZoom(selector, opts) {
           transY: 0,
         };
       }
-      console.log('TRANSFORM', transform, transform.match(/scale\((.*?)\)/)[1]);
 
       const scale = parseFloat(transform.match(/scale\((.*)\)/)[1]);
       const x = parseFloat(
@@ -48,7 +47,6 @@ function G_PanZoom(selector, opts) {
       const y = parseFloat(
         transform.match(/translate\((.*?)\)/)[1].split(',')[1]
       );
-      console.log('STUFF', scale, x, y);
       return {
         scale,
         transX: x,
@@ -69,7 +67,7 @@ function G_PanZoom(selector, opts) {
       //   ')';
       // ele.style.transform = `matrix3d(${o.scale}, 0, 0, 0, 0, ${o.scale}, 0, 0, 0, 0, 1, 0, ${o.transX}, ${o.transY}, 0, 1)`;
       const transform = `translate(${o.transX}px, ${o.transY}px) scale(${o.scale})`;
-      console.log('SET TRANSFORM', transform);
+      // console.log('SET TRANSFORM', transform);
       ele.style.transform = transform;
     };
 

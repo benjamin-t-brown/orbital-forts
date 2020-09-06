@@ -466,11 +466,17 @@ const G_controller_setTarget = ev => {
     const touch = ev.changedTouches[0];
     const transform = canvas.parentElement.style.transform;
     const { left, top } = canvas.getBoundingClientRect();
-    const scale = parseFloat(transform.slice(7, transform.indexOf(',')));
+    const scale = parseFloat(
+      transform.slice(
+        transform.indexOf('scale') + 6,
+        transform.lastIndexOf(')')
+      )
+    );
     let { x, y } = G_view_pxToWorld(
       (touch.clientX - left) / scale,
       (touch.clientY - top) / scale
     );
+    console.log('SET TARGET LOC', x, y, left, top, scale, transform);
     G_model_setTargetLocation([x, y]);
   } else {
     const { offsetX, offsetY } = ev;

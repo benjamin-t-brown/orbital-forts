@@ -257,6 +257,7 @@ canvas.addEventListener('touchend', event => {
   let currentTime = +new Date();
   let tapLength = currentTime - lastTap;
   if (tapLength < 500) {
+    console.log('SET TARGET', event);
     window.events.setTarget(event);
     event.preventDefault();
   }
