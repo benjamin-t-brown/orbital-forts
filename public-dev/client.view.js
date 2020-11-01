@@ -9,10 +9,12 @@ G_getEntityFromEntMap
 G_getHeadingTowards
 G_action_move
 G_res_shockwave
+G_res_sprites
 G_model_getPlayer
 G_model_getColor
 G_model_getTargetLocation
 G_model_getRenderHistory
+G_model_isDrawable
 G_view_renderSoundToggle
 G_view_wormholeCount
 G_view_renderMenuInfo
@@ -27,7 +29,7 @@ let G_view_innerHTML = 'innerHTML';
 let G_view_none = 'none';
 let G_view_block = 'block';
 let view_frameTime = +new Date();
-const FRAME_TIME_MAX = 9000;
+const FRAME_TIME_MAX = 1000;
 
 let PI = Math.PI;
 
@@ -137,6 +139,32 @@ const view_drawRectangle = (x, y, w, h, color, deg) => {
     ctx.fillRect(0, 0, w, h);
   }
   ctx.restore();
+};
+
+const DEFAULT_TEXT_PARAMS = {
+  font: 'monospace',
+  color: '#fff',
+  size: 14,
+  align: 'left',
+  strokeColor: '',
+};
+
+const G_view_drawText = (text, x, y, textParams, ctx) => {
+  const { font, size, color, align, strokeColor } = {
+    ...DEFAULT_TEXT_PARAMS,
+    ...(textParams || {}),
+  };
+  ctx = ctx || view_getCtx();
+  ctx.font = `${size}px ${font}`;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y);
+  if (strokeColor) {
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 0.5;
+    ctx.strokeText(text, x, y);
+  }
 };
 
 const G_view_getColor = (colorPrefix, colorName) => {
@@ -264,13 +292,18 @@ const G_view_getElementById = id => {
 };
 
 const G_view_renderSimulation = gameData => {
-  const { players, planets, projectiles } = gameData;
+  const { players, planets, resources, projectiles } = gameData;
   const history = G_model_getRenderHistory();
 
   view_clearDisplay();
   view_updateGlobalFrameTime();
 
   G_view_drawPlanets(planets.map(id => G_getEntityFromEntMap(id, gameData)));
+  G_view_drawResources(
+    resources
+      .map(id => G_getEntityFromEntMap(id, gameData))
+      .filter(G_model_isDrawable)
+  );
 
   // render previous server states
   for (let i = 0; i < history.length; i++) {
@@ -304,7 +337,7 @@ const G_view_renderSimulation = gameData => {
   );
   G_view_drawPlayers(players.map(id => G_getEntityFromEntMap(id, gameData)));
 
-  // DEBUG: Draw shockwaves
+  // DEBUG: Draw shockwave hit circles
   if (G_DEBUG) {
     for (let i in gameData.entMap) {
       const entity = gameData.entMap[i];
@@ -332,13 +365,18 @@ const G_view_renderStoppedSimulation = gameData => {
   if (!gameData) {
     return;
   }
-  const { planets, players } = gameData;
+  const { planets, players, resources } = gameData;
   view_clearDisplay();
   view_updateGlobalFrameTime();
   G_view_drawPlayers(players.map(id => G_getEntityFromEntMap(id, gameData)));
   G_view_drawPlanets(
     planets.map(id => G_getEntityFromEntMap(id, gameData)),
     false
+  );
+  G_view_drawResources(
+    resources
+      .map(id => G_getEntityFromEntMap(id, gameData))
+      .filter(G_model_isDrawable)
   );
 
   for (let i in gameData.entMap) {
@@ -357,6 +395,59 @@ const G_view_renderStoppedSimulation = gameData => {
       const { x: px, y: py } = G_view_worldToPx(x, y);
       view_drawCircle(px, py, r * G_SCALE, 'white');
     }
+  }
+};
+
+const G_view_drawResources = resources => {
+  for (let i = 0; i < resources.length; i++) {
+    const res = resources[i];
+    const { x, y, type } = res;
+    const { x: px, y: py } = G_view_worldToPx(x, y);
+    let resSprite = G_res_sprites[type] || {};
+
+    const ctx = view_getCtx();
+    ctx.save();
+    const pct = view_getFrameTimePercentage();
+    if (resSprite.transformFunc) {
+      let result = resSprite.transformFunc({
+        ctx,
+        res,
+        sprite: resSprite,
+        pct,
+        px,
+        py,
+      });
+      if (result) {
+        resSprite = result;
+      }
+    } else {
+      if (pct > 0.5) {
+        ctx.transform(pct * 2 - 1, 0, 0, 1, px, py);
+      } else {
+        ctx.transform(1 - pct * 2, 0, 0, 1, px, py);
+      }
+    }
+
+    const borderSize = 5;
+    let { label, content, color, background, borderColor, size, fontSize } = {
+      color: G_res_sprites.DEFAULT_COLOR,
+      size: G_res_sprites.DEFAULT_SIZE,
+      fontSize: G_res_sprites.DEFAULT_FONT_SIZE,
+      ...resSprite,
+    };
+    view_drawCircle(0, 0, size / 2 + borderSize, borderColor);
+    view_drawCircle(0, 0, size / 2, background);
+    G_view_drawText(content, 0, 0, {
+      align: 'center',
+      color,
+      size: fontSize,
+    });
+    ctx.restore();
+
+    G_view_drawText(label, px, py - size, {
+      align: 'center',
+      color: 'white',
+    });
   }
 };
 

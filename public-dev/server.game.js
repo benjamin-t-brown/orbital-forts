@@ -62,7 +62,7 @@ const G_Game = (owner, name) => {
   let timeoutId;
   let gameData = null;
   let broadcastCtr = 0;
-  let broadcastEvery = Math.round(50 / G_FRAME_MS); // broadcast every this number of frames (number in ms)
+  let broadcastEvery = Math.round(50 / G_FRAME_MS); // broadcast every this number of frames, where each frame lasts for G_FRAME_MS milliseconds
   let saveReplayEvery = Math.round(50 / G_FRAME_MS);
   let frame = 0;
   let frameReplay = 0;

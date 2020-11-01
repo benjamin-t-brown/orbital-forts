@@ -6,10 +6,12 @@ G_actions
 G_action_shoot
 G_getRandomLocInCircle
 G_getEntityFromEntMap
+G_getEntityType
 G_res_spray
 G_res_coin
 G_res_planetCracker
 G_view_auxControls
+G_entity_drawables
 */
 
 let model_userId = null;
@@ -65,6 +67,7 @@ const G_model_getMe = gameData => {
   }
   return G_getEntityFromEntMap(players[0], gameData);
 };
+const G_model_isDrawable = e => G_entity_drawables.includes(G_getEntityType(e));
 
 const G_model_getLocalStorageKey = () => 'js13k2020_orbital_forts';
 const G_model_isLoading = () => model_loading;

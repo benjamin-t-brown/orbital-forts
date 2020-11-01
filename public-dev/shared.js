@@ -79,54 +79,71 @@ const G_res_proximityMine = 'prox';
 const G_res_shockwave = 'shockwave';
 
 const G_res_sprites = {
+  DEFAULT_SIZE: 38,
+  DEFAULT_COLOR: 'white',
+  DEFAULT_FONT_SIZE: 32,
   [G_res_coin]: {
-    elem: 'div',
     label: '',
-    offsetTop: 25,
     content: '$',
+    background: '#cc0',
+    borderColor: '#880',
   },
   [G_res_spray]: {
-    elem: 'div',
     label: 'Spread Fire',
-    offsetTop: 45,
     content: 'S',
+    background: '#c0c',
+    borderColor: '#606',
   },
   [G_res_planetCracker]: {
-    elem: 'div',
     label: 'Planet Crkr.',
-    offsetTop: 45,
     content: 'P',
+    background: 'rgb(105, 0, 204)',
+    borderColor: 'rgb(102, 0, 88)',
   },
   [G_res_cluster]: {
-    elem: 'div',
     label: 'Cluster Bomb',
-    offsetTop: 45,
     content: 'C',
+    background: 'rgb(82, 0, 0)',
+    borderColor: 'rgb(128, 2, 2)',
   },
   [G_res_waveBomb]: {
-    elem: 'div',
     label: 'Wave Bomb',
-    offsetTop: 45,
     content: 'W',
-  },
-  [G_res_wormhole]: {
-    elem: 'div',
-    label: '',
-    // offsetTop: 50,
-    offsetTop: 32,
-    content: '<div></div>', // wormholes have css that affect this div
+    background: 'rgb(56, 121, 165)',
+    borderColor: 'rgb(40, 59, 165)',
   },
   [G_res_boomerang]: {
-    elem: 'div',
     label: 'Boomerang',
-    offsetTop: 45,
     content: 'B',
+    background: 'rgb(255, 0, 0)',
+    borderColor: 'rgb(200, 0, 0)',
   },
   [G_res_proximityMine]: {
-    elem: 'div',
     label: '',
-    offsetTop: 25,
-    content: `<div class="prox2">!</div>`,
+    content: `!`,
+    color: '#f00',
+    background: '#500',
+    borderColor: '#600',
+    transformFunc: ({ ctx, sprite, px, py, pct }) => {
+      const wave = Math.cos(pct * Math.PI * 2);
+      ctx.transform(1 + 0.08 * wave, 0, 0, 1 + 0.08 * wave, px, py);
+
+      let opacity = Math.floor(255 - Math.abs(wave) * 255).toString(16);
+      if (opacity.length === 1) {
+        opacity = '0' + opacity;
+      }
+
+      const newRes = {
+        ...sprite,
+        background: '#050000' + opacity,
+      };
+      return newRes;
+    },
+  },
+  [G_res_wormhole]: {
+    label: '',
+    offsetTop: 32,
+    content: '<div></div>', // wormholes have css that affect this div
   },
 };
 // This maps all available actions with their costs
@@ -156,6 +173,16 @@ const G_entity = {
   proximityMine: 'ent_res_prox',
   shockwave: 'ent_shockwave',
 };
+
+const G_entity_drawables = [
+  G_entity.coin,
+  G_entity.planetCracker,
+  G_entity.spray,
+  G_entity.cluster,
+  G_entity.wave,
+  G_entity.boomerang,
+  G_entity.proximityMine,
+];
 
 const isPlayer = o => {
   return !!(o.color && o.name);

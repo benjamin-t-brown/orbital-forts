@@ -86,6 +86,7 @@ G_model_setReplayRoundIndex
 G_model_setIsReplayingGame
 G_model_setLobbyId
 G_model_isReplayingGame
+G_model_isDrawable
 */
 
 let G_panZoomObj = {};
@@ -144,11 +145,13 @@ const G_controller_setupGame = gameData => {
   G_model_setGameOver(false);
 
   G_view_createResources(
-    gameData.resources.map(id => G_getEntityFromEntMap(id, gameData))
+    gameData.resources
+      .map(id => G_getEntityFromEntMap(id, gameData))
+      .filter(e => !G_model_isDrawable(e))
   );
   G_view_renderStoppedSimulation(gameData);
   G_view_loop(() => {
-    //G_view_renderStoppedSimulation(gameData);
+    G_view_renderStoppedSimulation(gameData);
   });
 };
 
@@ -296,8 +299,8 @@ const G_controller_beginSimulation = (gameData, cb) => {
 const G_controller_endSimulation = gameData => {
   clearInterval(controller_game_intervalId);
   G_view_loop(() => {
-    //const gameData = G_model_getGameData();
-    //G_view_renderStoppedSimulation(gameData);
+    const gameData = G_model_getGameData();
+    G_view_renderStoppedSimulation(gameData);
   });
   G_model_setSimulating(false);
   G_model_setSelectedSpeed('Normal');
