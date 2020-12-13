@@ -5,7 +5,7 @@
   "license": "MIT",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "NODE_ENV=production node index.js",
     "build": "node build.js",
     "build:zip": "node build.js zip",
     "babel": "babel .build/shared.tmp.js .build/client.tmp.js --out-file .build/client+shared.babel.js",
@@ -23,6 +23,7 @@
   "dependencies": {
     "archiver": "^3.0.0",
     "body-parser": "^1.19.0",
+    "compression": "^1.7.4",
     "express": "^4.17.1",
     "express-session": "^1.16.2",
     "mysql2": "^1.6.5",

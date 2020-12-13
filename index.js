@@ -4,6 +4,7 @@ const fs = require('fs');
 const archiver = require('archiver');
 const express = require('express');
 const session = require('express-session');
+const compression = require('compression');
 const parser = require('body-parser');
 const app = express();
 const server = require('http').Server(app);
@@ -74,6 +75,7 @@ app
         ].join('\n')
       );
   })
+  .use(compression())
   .use(express.static('public'))
   .use(
     session({ secret: 'js13kserver', saveUninitialized: false, resave: false })
