@@ -89,7 +89,7 @@ const G_view_playSound = soundName => {
   const soundVolume = view_volumes[soundName] || 0.3;
 
   if (soundArray === view_sounds.idk) {
-    console.warn('no sound found with name:', soundName);
+    console.warn('no sound found:', soundName);
   }
 
   G_view_setVolume(soundVolume);
