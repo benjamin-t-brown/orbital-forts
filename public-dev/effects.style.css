@@ -71,11 +71,11 @@
     opacity: 1;
   }
   25% {
-    transform: scale(1.8);
+    transform: scale(2.0);
     opacity: 0.75;
   }
   100% {
-    transform: scale(2);
+    transform: scale(2.2);
     opacity: 0;
   }
 }

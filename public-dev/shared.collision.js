@@ -31,13 +31,14 @@ const removeResource = (id, gameData) => {
   }
 };
 
+// Used for both WaveBomb and Proximity shockwaves
 const createShockwaveCb = (x, y, player, gameData) => {
   return () => {
     const shockwave = G_Shockwave(
       G_res_shockwave,
       x,
       y,
-      115 / G_SCALE,
+      125 / G_SCALE,
       250,
       gameData.tss
     );

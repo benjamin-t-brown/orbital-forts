@@ -17,20 +17,6 @@ function G_PanZoom(selector, opts) {
     ele.style.transform = 'transform(0px, 0px) scale(1)';
 
     const getTransformMatrix = () => {
-      // let trans = ele.style.transform;
-      // let start = trans.indexOf('(') + 1;
-      // let end = trans.indexOf(')');
-      // let matrix = trans.slice(start, end).split(',');
-      // return {
-      //   scale: +matrix[0],
-      //   transX: +matrix[4],
-      //   transY: +matrix[5],
-      // };
-      // return {
-      //   scale: +matrix[0],
-      //   transX: +matrix[12],
-      //   transY: +matrix[13],
-      // };
       const transform = ele.style.transform;
       if (!transform) {
         return {
@@ -55,19 +41,7 @@ function G_PanZoom(selector, opts) {
     };
 
     const setTransformMatrix = o => {
-      // ele.style.transform =
-      //   'matrix(' +
-      //   o.scale +
-      //   ', 0, 0, ' +
-      //   o.scale +
-      //   ', ' +
-      //   o.transX +
-      //   ', ' +
-      //   o.transY +
-      //   ')';
-      // ele.style.transform = `matrix3d(${o.scale}, 0, 0, 0, 0, ${o.scale}, 0, 0, 0, 0, 1, 0, ${o.transX}, ${o.transY}, 0, 1)`;
       const transform = `translate(${o.transX}px, ${o.transY}px) scale(${o.scale})`;
-      // console.log('SET TRANSFORM', transform);
       ele.style.transform = transform;
     };
 
@@ -241,12 +215,17 @@ function G_PanZoom(selector, opts) {
         oldX = x;
         oldY = y;
       },
+      translate: ({ x, y }) => {
+        applyTranslate({ transX: x, transY: y, scale: 1 });
+      },
+      getTransformMatrix,
+      setTransformMatrix,
     };
   }
 
   opts = opts || {};
   let minScale = opts.minScale ? opts.minScale : 0.1;
-  let maxScale = opts.maxScale ? opts.maxScale : 1;
+  let maxScale = opts.maxScale ? opts.maxScale : 1.1;
   let increment = opts.increment ? opts.increment : 0.2;
   let liner = opts.liner ? opts.liner : false;
   return AttachPanZoom(

@@ -375,11 +375,26 @@ let transitionTimeoutId = -1;
 const G_controller_centerOnPlayer = () => {
   const player = G_model_getMe(G_model_getGameData());
   let { x, y } = G_view_worldToPx(player.x, player.y);
-  y += isSafari ? window.innerHeight * 0.65 : 0; //not sure what the deal is here, this hacks the screen to at least be in view though;
   const style = G_view_getElementById('cc').style;
+  style.transformBox = 'fill-box';
+
+  // HACK: Safari calculates translate incorrectly, but only along the y axis
+  if (isSafari) {
+    style.transformOrigin = '50% -50%';
+  }
+
   style.transition = 'transform 0.5s';
   G_panZoomObj.translateZoom({ x, y, scale: 0.65 });
   clearTimeout(transitionTimeoutId);
+
+  // HACK: Imperfectly nudge the screen downwards based in the screen height.  This is
+  // probably very broken on super vertical screens, but then the zoom feature doesn't
+  // matter as much
+  if (isSafari) {
+    const matrix = G_panZoomObj.getTransformMatrix();
+    matrix.transY += window.innerHeight / 9;
+    G_panZoomObj.setTransformMatrix(matrix);
+  }
   transitionTimeoutId = setTimeout(() => {
     style.transition = '';
   }, 500);
