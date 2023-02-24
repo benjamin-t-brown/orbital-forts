@@ -1,0 +1,392 @@
+body {
+  font-family: monospace;
+  margin: 0;
+  color: #fff;
+  background-color: #111;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  line-height: 1.5;
+  touch-action: manipulation;
+}
+button {
+  font-size: 13px;
+  margin: 0.5rem;
+  pointer-events: all;
+  background-color: #707070;
+  border-radius: 5px;
+  border: 1px solid #505050;
+  cursor: pointer;
+  color: #fff;
+  padding: 7px 18px;
+}
+button:hover {
+  background-color: #808080;
+}
+button:active {
+  transform: scale(0.95);
+}
+button:disabled {
+  color: #999;
+  border: 1px solid rgb(119, 68, 106);
+  background-color: #505050;
+  cursor: default;
+}
+input {
+  margin: 7px;
+  border-radius: 5px;
+}
+select {
+  max-width: 180px;
+  margin: 0.5rem;
+  border-radius: 5px;
+}
+span {
+  font-size: 12px;
+}
+#c {
+  z-index: 0;
+}
+#cc {
+  position: relative;
+  background: #1a1a1a;
+  background: radial-gradient(
+    circle,
+    rgba(40, 40, 40, 1) 0%,
+    rgba(28, 28, 28, 1) 100%
+  );
+  box-shadow: rgb(26, 26, 26) 0px 0px 15px 15px;
+}
+.centered {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  width: 100%;
+  position: relative;
+}
+.hidden {
+  display: none;
+}
+#main {
+  max-width: 400px;
+  margin: auto;
+}
+#dialog {
+  line-height: 1;
+}
+#dialog-text {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+.back {
+  position: absolute;
+  left: -10px;
+  top: -70px;
+}
+.menu {
+  width: 100%;
+  border: 1px solid white;
+  background-color: #444;
+  padding: 0.5rem;
+  font-size: 2rem;
+}
+.lobby-player {
+  text-align: left;
+  margin: 0.5rem;
+}
+.actions-label {
+  margin: 4px;
+}
+.action {
+  width: 80px;
+  border-radius: 5px;
+  padding: 0.5rem 0px;
+  font-size: 12px;
+  border: 1px solid;
+  text-align: center;
+  user-select: none;
+  pointer-events: all;
+  cursor: pointer;
+  background-color: #222;
+}
+.action-label {
+  text-align: center;
+}
+.action-selected {
+  border: 1px solid #55f;
+}
+.game-ui {
+  position: fixed;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0.5rem;
+  user-select: none;
+  pointer-events: none;
+}
+.banner-message {
+  pointer-events: none;
+  user-select: none;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.h-button-list {
+  display: flex;
+  justify-content: space-between;
+  width: 170px;
+  pointer-events: all;
+  align-items: center;
+}
+#control-panel {
+  display: flex;
+}
+@keyframes target-spin {
+  0% {
+    transform: rotateZ(0deg);
+  }
+  100% {
+    transform: rotateZ(360deg);
+  }
+}
+.target {
+  position: absolute;
+  stroke: #ff0000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 5px inset transparent;
+  animation: 2s linear infinite target-spin;
+  pointer-events: none;
+  transition: left 0.25s, top 0.25s;
+  z-index: 4;
+}
+.game-elems {
+  /* for safari */
+  z-index: 1;
+  pointer-events: none;
+
+  position: absolute;
+  left: 0px;
+  top: 0px;
+}
+.player-name {
+  width: 200px;
+  pointer-events: none;
+  user-select: none;
+  position: absolute;
+  font-size: 16px;
+  text-align: center;
+}
+#center-self {
+  margin: 5px;
+  text-decoration: underline;
+  pointer-events: all;
+  cursor: pointer;
+  color: #9df;
+}
+#back-practice {
+  margin-bottom: 10px;
+  text-decoration: underline;
+  pointer-events: all;
+  cursor: pointer;
+  color: #fd9;
+}
+#funds {
+  margin-bottom: 4px;
+}
+.lobby-name {
+  color: #9df;
+}
+.post-game-button {
+  position: absolute;
+  left: 0px;
+  width: 95%;
+}
+#leave-game {
+  bottom: 40px;
+}
+#view-last-replay {
+  bottom: 90px;
+}
+
+#banner-message3 {
+  margin-top: 100px;
+  text-align: center;
+}
+
+#confirm-button {
+  width: 170px;
+  padding: 10px;
+  margin: 0.5rem 0;
+}
+
+.menu-section {
+  border: 1px solid white;
+  width: calc(100% - 2px);
+  text-align: center;
+  margin: 0.5rem;
+}
+
+.practice-menu {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.main-menu-button {
+  padding: 15px 30px;
+  width: 70%;
+}
+.create-game {
+  background: #097309;
+  border: 1px solid #12a012;
+}
+.create-game:hover {
+  background-color: #198319;
+}
+
+.join-button {
+  background-color: #225;
+  border: 1px solid #55d;
+  width: 80%;
+  min-height: 32px;
+}
+.join-button:hover {
+  background-color: #336;
+}
+.controls-aux {
+  min-height: 50px;
+  margin: 0.5rem 0;
+  pointer-events: all;
+}
+#controls-slider-input {
+  width: 168px;
+  margin: 0.5rem 0;
+}
+#controls-primary {
+  width: 170px;
+}
+
+#sound {
+  opacity: 0.3;
+  background: white;
+  position: fixed;
+  left: 5px;
+  top: 5px;
+  width: 30px;
+  border-radius: 5px;
+}
+#sound:active {
+  transform: translateY(1px);
+}
+
+#action-buttons {
+  pointer-events: all;
+  text-align: center;
+  width: 200px;
+}
+
+#res {
+  z-index: 1;
+}
+
+#players {
+  z-index: 2;
+}
+
+#particles {
+  z-index: 3;
+}
+
+#games {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-height: 250px;
+  overflow: auto;
+}
+
+.menu-info-item {
+  position: relative;
+  height: 90px;
+}
+.menu-info-text {
+  font-size: 12px;
+  text-align: left;
+  margin-left: 103px;
+  height: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  padding: 0px 15px;
+}
+
+@media only screen and (max-height: 800px) {
+  .menu-section {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+}
+
+@media only screen and (max-width: 421px) {
+  #main {
+    max-width: 320px;
+    font-size: 12px;
+  }
+  .action {
+    font-size: 12px;
+    padding: 0.5rem 0px;
+  }
+  .actions-label {
+    text-align: left;
+  }
+  .banner-message {
+    font-size: 13px;
+  }
+  .h-button-list {
+    width: unset;
+  }
+  #action-buttons {
+    max-height: 200px;
+    width: unset;
+    overflow-y: auto;
+  }
+  #controls {
+    justify-content: space-between;
+    flex-direction: row-reverse;
+    align-items: flex-end;
+  }
+  #controls-additional {
+    width: calc(100% - 0.5rem);
+    padding-left: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .controls-aux {
+    width: 80%;
+  }
+  #controls-slider-input {
+    width: 100%;
+  }
+  #funds {
+    text-align: left;
+  }
+  #confirm-button {
+    margin: 0px;
+    width: 80%;
+  }
+  body {
+    font-size: 12px;
+  }
+  button {
+    font-size: 12px;
+    margin: 0.25rem;
+    color: #fff;
+    padding: 5px 10px;
+  }
+}
